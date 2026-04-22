@@ -13,11 +13,13 @@ import (
 )
 
 type createTaskRequest struct {
+	ProjectID   *int64 `json:"project_id" validate:"omitempty"`
 	Title       string `json:"title" validate:"required,notblank,max=255"`
 	Description string `json:"description" validate:"max=1000"`
 }
 
 type updateTaskRequest struct {
+	ProjectID   *int64  `json:"project_id" validate:"omitempty"`
 	Title       *string `json:"title" validate:"omitempty,notblank,max=255"`
 	Description *string `json:"description" validate:"omitempty,max=1000"`
 	Completed   *bool   `json:"completed" validate:"omitempty"`
@@ -25,6 +27,7 @@ type updateTaskRequest struct {
 
 type taskResponse struct {
 	ID          int64  `json:"id"`
+	ProjectID   int64  `json:"project_id"`
 	Title       string `json:"title"`
 	Description string `json:"description"`
 	Completed   bool   `json:"completed"`
@@ -32,7 +35,7 @@ type taskResponse struct {
 
 type TaskService interface {
 	CreateTask(ctx context.Context, userID int64, t service.CreateTaskInput) (entity.Task, error)
-	ListTasks(ctx context.Context, userID int64, page, limit int) ([]entity.Task, int, error)
+	ListTasks(ctx context.Context, userID int64, projectID *int64, page, limit int) ([]entity.Task, int, error)
 	GetTask(ctx context.Context, userID, id int64) (entity.Task, error)
 	UpdateTask(ctx context.Context, userID, id int64, in service.UpdateTaskInput) (entity.Task, error)
 	DeleteTask(ctx context.Context, userID, id int64) error
@@ -49,8 +52,8 @@ func NewTaskHandler(svc TaskService) *TaskHandler {
 }
 
 func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
-	userID, ok := auth.UserIDFromContext(r.Context())
-	if !ok {
+	userID, hasUser := auth.UserIDFromContext(r.Context())
+	if !hasUser {
 		unauthorized(w, "authentication required")
 		return
 	}
@@ -61,10 +64,15 @@ func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	t, err := h.svc.CreateTask(r.Context(), userID, service.CreateTaskInput{
+		ProjectID:   req.ProjectID,
 		Title:       req.Title,
 		Description: req.Description,
 	})
 	if err != nil {
+		if errors.Is(err, entity.ErrProjectNotFound) {
+			notFound(w, "project not found")
+			return
+		}
 		slog.Error("handler task create", "error", err)
 		internalError(w, "failed to create task")
 		return
@@ -72,6 +80,7 @@ func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 
 	created(w, taskResponse{
 		ID:          t.ID,
+		ProjectID:   t.ProjectID,
 		Title:       t.Title,
 		Description: t.Description,
 		Completed:   t.Completed,
@@ -79,26 +88,29 @@ func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TaskHandler) ListTasks(w http.ResponseWriter, r *http.Request) {
-	userID, ok := auth.UserIDFromContext(r.Context())
-	if !ok {
+	userID, hasUser := auth.UserIDFromContext(r.Context())
+	if !hasUser {
 		unauthorized(w, "authentication required")
 		return
 	}
 
-	pageStr := r.URL.Query().Get("page")
-	limitStr := r.URL.Query().Get("limit")
-
-	page := 1
-	limit := 10
-	if p, err := strconv.Atoi(pageStr); err == nil {
-		page = p
+	page, limit := pageLimitFromRequest(r)
+	var projectID *int64
+	if v := r.URL.Query().Get("project_id"); v != "" {
+		id, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			badRequest(w, errorCodeBadRequest, "invalid project id", nil)
+			return
+		}
+		projectID = &id
 	}
-	if l, err := strconv.Atoi(limitStr); err == nil {
-		limit = l
-	}
 
-	tasks, total, err := h.svc.ListTasks(r.Context(), userID, page, limit)
+	tasks, total, err := h.svc.ListTasks(r.Context(), userID, projectID, page, limit)
 	if err != nil {
+		if errors.Is(err, entity.ErrProjectNotFound) {
+			notFound(w, "project not found")
+			return
+		}
 		slog.Error("handler list tasks", "error", err)
 		internalError(w, "failed to list tasks")
 		return
@@ -108,6 +120,7 @@ func (h *TaskHandler) ListTasks(w http.ResponseWriter, r *http.Request) {
 	for i, t := range tasks {
 		res[i] = taskResponse{
 			ID:          t.ID,
+			ProjectID:   t.ProjectID,
 			Title:       t.Title,
 			Description: t.Description,
 			Completed:   t.Completed,
@@ -118,8 +131,8 @@ func (h *TaskHandler) ListTasks(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TaskHandler) GetTask(w http.ResponseWriter, r *http.Request) {
-	userID, ok := auth.UserIDFromContext(r.Context())
-	if !ok {
+	userID, hasUser := auth.UserIDFromContext(r.Context())
+	if !hasUser {
 		unauthorized(w, "authentication required")
 		return
 	}
@@ -144,8 +157,8 @@ func (h *TaskHandler) GetTask(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TaskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
-	userID, ok := auth.UserIDFromContext(r.Context())
-	if !ok {
+	userID, hasUser := auth.UserIDFromContext(r.Context())
+	if !hasUser {
 		unauthorized(w, "authentication required")
 		return
 	}
@@ -161,11 +174,16 @@ func (h *TaskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	t, err := h.svc.UpdateTask(r.Context(), userID, id, service.UpdateTaskInput{
+		ProjectID:   req.ProjectID,
 		Title:       req.Title,
 		Description: req.Description,
 		Completed:   req.Completed,
 	})
 	if err != nil {
+		if errors.Is(err, entity.ErrProjectNotFound) {
+			notFound(w, "project not found")
+			return
+		}
 		if errors.Is(err, entity.ErrTaskNotFound) {
 			notFound(w, "task not found")
 			return
@@ -215,6 +233,7 @@ func parseTaskID(w http.ResponseWriter, r *http.Request) (int64, bool) {
 func writeTask(w http.ResponseWriter, t entity.Task) {
 	ok(w, taskResponse{
 		ID:          t.ID,
+		ProjectID:   t.ProjectID,
 		Title:       t.Title,
 		Description: t.Description,
 		Completed:   t.Completed,

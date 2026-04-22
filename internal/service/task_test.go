@@ -14,7 +14,7 @@ const testUserID int64 = 42
 
 type mockTaskRepository struct {
 	CreateFunc  func(ctx context.Context, t *entity.Task) error
-	ListFunc    func(ctx context.Context, userID int64, limit, offset int) ([]entity.Task, int, error)
+	ListFunc    func(ctx context.Context, userID int64, projectID *int64, limit, offset int) ([]entity.Task, int, error)
 	GetByIDFunc func(ctx context.Context, userID, id int64) (entity.Task, error)
 	UpdateFunc  func(ctx context.Context, t *entity.Task) error
 	DeleteFunc  func(ctx context.Context, userID, id int64) error
@@ -24,8 +24,8 @@ func (m *mockTaskRepository) Create(ctx context.Context, t *entity.Task) error {
 	return m.CreateFunc(ctx, t)
 }
 
-func (m *mockTaskRepository) List(ctx context.Context, userID int64, limit, offset int) ([]entity.Task, int, error) {
-	return m.ListFunc(ctx, userID, limit, offset)
+func (m *mockTaskRepository) List(ctx context.Context, userID int64, projectID *int64, limit, offset int) ([]entity.Task, int, error) {
+	return m.ListFunc(ctx, userID, projectID, limit, offset)
 }
 
 func (m *mockTaskRepository) GetByID(ctx context.Context, userID, id int64) (entity.Task, error) {
@@ -38,6 +38,30 @@ func (m *mockTaskRepository) Update(ctx context.Context, t *entity.Task) error {
 
 func (m *mockTaskRepository) Delete(ctx context.Context, userID, id int64) error {
 	return m.DeleteFunc(ctx, userID, id)
+}
+
+type mockTaskProjectRepository struct {
+	GetDefaultFunc func(ctx context.Context, userID int64) (entity.Project, error)
+	ExistsFunc     func(ctx context.Context, userID, id int64) (bool, error)
+}
+
+func (m *mockTaskProjectRepository) GetDefault(ctx context.Context, userID int64) (entity.Project, error) {
+	return m.GetDefaultFunc(ctx, userID)
+}
+
+func (m *mockTaskProjectRepository) Exists(ctx context.Context, userID, id int64) (bool, error) {
+	return m.ExistsFunc(ctx, userID, id)
+}
+
+func defaultProjectMock(projectID int64) TaskProjectRepository {
+	return &mockTaskProjectRepository{
+		GetDefaultFunc: func(ctx context.Context, userID int64) (entity.Project, error) {
+			return entity.Project{ID: projectID, UserID: userID, IsDefault: true}, nil
+		},
+		ExistsFunc: func(ctx context.Context, userID, id int64) (bool, error) {
+			return id == projectID, nil
+		},
+	}
 }
 
 func TestCreateTask(t *testing.T) {
@@ -58,6 +82,7 @@ func TestCreateTask(t *testing.T) {
 				return &mockTaskRepository{
 					CreateFunc: func(ctx context.Context, task *entity.Task) error {
 						assert.Equal(t, testUserID, task.UserID, "service must propagate userID into entity")
+						assert.Equal(t, int64(100), task.ProjectID)
 						task.ID = 1
 						return nil
 					},
@@ -66,6 +91,7 @@ func TestCreateTask(t *testing.T) {
 			want: entity.Task{
 				ID:          1,
 				UserID:      testUserID,
+				ProjectID:   100,
 				Title:       "Test Title",
 				Description: "Test Description",
 			},
@@ -91,7 +117,7 @@ func TestCreateTask(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewTaskService(tt.mock(t))
+			s := NewTaskService(tt.mock(t), defaultProjectMock(100))
 			got, err := s.CreateTask(context.Background(), testUserID, tt.input)
 			if tt.wantErr {
 				require.Error(t, err)
@@ -105,8 +131,8 @@ func TestCreateTask(t *testing.T) {
 
 func TestListTasks(t *testing.T) {
 	mockTasks := []entity.Task{
-		{ID: 1, UserID: testUserID, Title: "Task 1", Description: "Desc 1"},
-		{ID: 2, UserID: testUserID, Title: "Task 2", Description: "Desc 2"},
+		{ID: 1, UserID: testUserID, ProjectID: 100, Title: "Task 1", Description: "Desc 1"},
+		{ID: 2, UserID: testUserID, ProjectID: 100, Title: "Task 2", Description: "Desc 2"},
 	}
 
 	tests := []struct {
@@ -124,8 +150,9 @@ func TestListTasks(t *testing.T) {
 			limit: 10,
 			mock: func(t *testing.T) TaskRepository {
 				return &mockTaskRepository{
-					ListFunc: func(ctx context.Context, userID int64, limit, offset int) ([]entity.Task, int, error) {
+					ListFunc: func(ctx context.Context, userID int64, projectID *int64, limit, offset int) ([]entity.Task, int, error) {
 						assert.Equal(t, testUserID, userID)
+						assert.Nil(t, projectID)
 						assert.Equal(t, 10, limit)
 						assert.Equal(t, 0, offset)
 						return mockTasks, 2, nil
@@ -141,7 +168,7 @@ func TestListTasks(t *testing.T) {
 			limit: 1000,
 			mock: func(t *testing.T) TaskRepository {
 				return &mockTaskRepository{
-					ListFunc: func(ctx context.Context, userID int64, limit, offset int) ([]entity.Task, int, error) {
+					ListFunc: func(ctx context.Context, userID int64, projectID *int64, limit, offset int) ([]entity.Task, int, error) {
 						assert.Equal(t, 100, limit, "limit > 100 must be clamped, not silently replaced")
 						assert.Equal(t, 0, offset, "page < 1 must be normalised to 1")
 						return mockTasks, 2, nil
@@ -157,7 +184,7 @@ func TestListTasks(t *testing.T) {
 			limit: 10,
 			mock: func(t *testing.T) TaskRepository {
 				return &mockTaskRepository{
-					ListFunc: func(ctx context.Context, userID int64, limit, offset int) ([]entity.Task, int, error) {
+					ListFunc: func(ctx context.Context, userID int64, projectID *int64, limit, offset int) ([]entity.Task, int, error) {
 						return nil, 0, errors.New("db error")
 					},
 				}
@@ -168,8 +195,8 @@ func TestListTasks(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewTaskService(tt.mock(t))
-			gotTasks, gotTotal, err := s.ListTasks(context.Background(), testUserID, tt.page, tt.limit)
+			s := NewTaskService(tt.mock(t), defaultProjectMock(100))
+			gotTasks, gotTotal, err := s.ListTasks(context.Background(), testUserID, nil, tt.page, tt.limit)
 			if tt.wantErr {
 				require.Error(t, err)
 				return
@@ -182,7 +209,7 @@ func TestListTasks(t *testing.T) {
 }
 
 func TestGetTask(t *testing.T) {
-	mockTask := entity.Task{ID: 1, UserID: testUserID, Title: "Task 1", Description: "Desc 1"}
+	mockTask := entity.Task{ID: 1, UserID: testUserID, ProjectID: 100, Title: "Task 1", Description: "Desc 1"}
 
 	tests := []struct {
 		name    string
@@ -222,7 +249,7 @@ func TestGetTask(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewTaskService(tt.mock(t))
+			s := NewTaskService(tt.mock(t), defaultProjectMock(100))
 			got, err := s.GetTask(context.Background(), testUserID, tt.id)
 			if tt.wantErr {
 				require.Error(t, err)
@@ -235,7 +262,7 @@ func TestGetTask(t *testing.T) {
 }
 
 func TestUpdateTask(t *testing.T) {
-	mockTask := entity.Task{ID: 1, UserID: testUserID, Title: "Task 1", Description: "Desc 1", Completed: false}
+	mockTask := entity.Task{ID: 1, UserID: testUserID, ProjectID: 100, Title: "Task 1", Description: "Desc 1", Completed: false}
 
 	newTitle := "New Title"
 	newDescription := "New Desc"
@@ -272,6 +299,7 @@ func TestUpdateTask(t *testing.T) {
 			want: entity.Task{
 				ID:          1,
 				UserID:      testUserID,
+				ProjectID:   100,
 				Title:       newTitle,
 				Description: newDescription,
 				Completed:   newCompleted,
@@ -296,6 +324,7 @@ func TestUpdateTask(t *testing.T) {
 			want: entity.Task{
 				ID:          1,
 				UserID:      testUserID,
+				ProjectID:   100,
 				Title:       mockTask.Title,
 				Description: mockTask.Description,
 				Completed:   newCompleted,
@@ -338,7 +367,7 @@ func TestUpdateTask(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewTaskService(tt.mock(t))
+			s := NewTaskService(tt.mock(t), defaultProjectMock(100))
 			got, err := s.UpdateTask(context.Background(), testUserID, tt.id, tt.input)
 			if tt.wantErr {
 				require.Error(t, err)
@@ -386,7 +415,7 @@ func TestDeleteTask(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewTaskService(tt.mock(t))
+			s := NewTaskService(tt.mock(t), defaultProjectMock(100))
 			err := s.DeleteTask(context.Background(), testUserID, tt.id)
 			if tt.wantErr {
 				require.Error(t, err)

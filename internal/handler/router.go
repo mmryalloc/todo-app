@@ -3,16 +3,18 @@ package handler
 import "net/http"
 
 type Router struct {
-	task   *TaskHandler
-	auth   *AuthHandler
-	parser TokenParser
+	task    *TaskHandler
+	auth    *AuthHandler
+	project *ProjectHandler
+	parser  TokenParser
 }
 
-func NewRouter(taskHandler *TaskHandler, authHandler *AuthHandler, parser TokenParser) *Router {
+func NewRouter(taskHandler *TaskHandler, authHandler *AuthHandler, projectHandler *ProjectHandler, parser TokenParser) *Router {
 	return &Router{
-		task:   taskHandler,
-		auth:   authHandler,
-		parser: parser,
+		task:    taskHandler,
+		auth:    authHandler,
+		project: projectHandler,
+		parser:  parser,
 	}
 }
 
@@ -39,6 +41,12 @@ func (r *Router) Setup() http.Handler {
 	mux.Handle("GET "+v1+"/users/me", requireAuth(http.HandlerFunc(r.auth.GetMe)))
 	mux.Handle("PUT "+v1+"/users/me", requireAuth(http.HandlerFunc(r.auth.UpdateMe)))
 	mux.Handle("DELETE "+v1+"/users/me", requireAuth(http.HandlerFunc(r.auth.DeleteMe)))
+
+	mux.Handle("POST "+v1+"/projects", requireAuth(http.HandlerFunc(r.project.CreateProject)))
+	mux.Handle("GET "+v1+"/projects", requireAuth(http.HandlerFunc(r.project.ListProjects)))
+	mux.Handle("GET "+v1+"/projects/{id}", requireAuth(http.HandlerFunc(r.project.GetProject)))
+	mux.Handle("PUT "+v1+"/projects/{id}", requireAuth(http.HandlerFunc(r.project.UpdateProject)))
+	mux.Handle("DELETE "+v1+"/projects/{id}", requireAuth(http.HandlerFunc(r.project.DeleteProject)))
 
 	mux.Handle("POST "+v1+"/tasks", requireAuth(http.HandlerFunc(r.task.CreateTask)))
 	mux.Handle("GET "+v1+"/tasks", requireAuth(http.HandlerFunc(r.task.ListTasks)))

@@ -7,11 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/lib/pq"
 	"github.com/mmryalloc/tody/internal/entity"
 )
-
-const pgUniqueViolationCode = "23505"
 
 type userRepository struct {
 	db *sql.DB
@@ -22,12 +19,23 @@ func NewUserRepository(db *sql.DB) *userRepository {
 }
 
 func (r *userRepository) Create(ctx context.Context, u *entity.User) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("repository user create begin tx: %w", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
 	query := `
 		INSERT INTO users (email, name, password_hash)
 		VALUES ($1, $2, $3)
 		RETURNING id, created_at, updated_at
 	`
-	err := r.db.QueryRowContext(
+	err = tx.QueryRowContext(
 		ctx,
 		query,
 		strings.ToLower(u.Email),
@@ -36,12 +44,23 @@ func (r *userRepository) Create(ctx context.Context, u *entity.User) error {
 	).Scan(&u.ID, &u.CreatedAt, &u.UpdatedAt)
 
 	if err != nil {
-		var pqErr *pq.Error
-		if errors.As(err, &pqErr) && pqErr.Code == pgUniqueViolationCode {
+		if isUniqueViolation(err) {
 			return entity.ErrUserExists
 		}
 		return fmt.Errorf("repository user create: %w", err)
 	}
+
+	if _, err := tx.ExecContext(ctx,
+		`INSERT INTO projects (user_id, name, color, is_default) VALUES ($1, $2, $3, TRUE)`,
+		u.ID, defaultUserProjectName, defaultUserProjectColor,
+	); err != nil {
+		return fmt.Errorf("repository user create default project: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("repository user create commit: %w", err)
+	}
+	committed = true
 
 	return nil
 }
@@ -104,8 +123,7 @@ func (r *userRepository) UpdateProfile(ctx context.Context, u *entity.User) erro
 		if errors.Is(err, sql.ErrNoRows) {
 			return entity.ErrUserNotFound
 		}
-		var pqErr *pq.Error
-		if errors.As(err, &pqErr) && pqErr.Code == pgUniqueViolationCode {
+		if isUniqueViolation(err) {
 			return entity.ErrUserExists
 		}
 		return fmt.Errorf("repository user update profile: %w", err)

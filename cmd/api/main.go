@@ -54,13 +54,16 @@ func main() {
 	jwtManager := auth.NewJWTManager(cfg.JWT.AccessSecret, cfg.JWT.AccessTokenTTL, cfg.JWT.Issuer)
 
 	taskRepo := repository.NewTaskRepository(db)
+	projectRepo := repository.NewProjectRepository(db)
 	userRepo := repository.NewUserRepository(db)
 	sessionRepo := repository.NewSessionRepository(rdb)
 
-	taskSvc := service.NewTaskService(taskRepo)
+	taskSvc := service.NewTaskService(taskRepo, projectRepo)
+	projectSvc := service.NewProjectService(projectRepo)
 	authSvc := service.NewAuthService(userRepo, sessionRepo, jwtManager, cfg.JWT.RefreshTokenTTL)
 
 	taskHandler := handler.NewTaskHandler(taskSvc)
+	projectHandler := handler.NewProjectHandler(projectSvc)
 	authHandler := handler.NewAuthHandler(
 		authSvc,
 		cfg.Cookie.Secure,
@@ -69,7 +72,7 @@ func main() {
 		cfg.JWT.RefreshTokenTTL,
 	)
 
-	r := handler.NewRouter(taskHandler, authHandler, jwtManager)
+	r := handler.NewRouter(taskHandler, authHandler, projectHandler, jwtManager)
 	h := r.Setup()
 
 	addr := ":" + cfg.App.Port

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
@@ -11,9 +12,13 @@ import (
 )
 
 var validate = validator.New()
+var hexRGBPattern = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 
 func init() {
 	validate.RegisterValidation("notblank", validators.NotBlank)
+	validate.RegisterValidation("hexrgb", func(fl validator.FieldLevel) bool {
+		return hexRGBPattern.MatchString(fl.Field().String())
+	})
 }
 
 func bind(w http.ResponseWriter, r *http.Request, dst any) bool {
@@ -72,6 +77,8 @@ func formatError(e validator.FieldError) string {
 		return fmt.Sprintf("%s must be at least %s characters", e.Field(), e.Param())
 	case "email":
 		return fmt.Sprintf("%s must be a valid email", e.Field())
+	case "hexrgb":
+		return fmt.Sprintf("%s must be a valid hex color", e.Field())
 	default:
 		return fmt.Sprintf("%s is invalid", e.Field())
 	}
