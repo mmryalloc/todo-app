@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/mmryalloc/tody/internal/auth"
 	"github.com/mmryalloc/tody/internal/entity"
 	"github.com/mmryalloc/tody/internal/service"
 )
@@ -120,7 +119,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
-	userID, hasUser := auth.UserIDFromContext(r.Context())
+	userID, hasUser := UserIDFromContext(r.Context())
 	if !hasUser {
 		unauthorized(w, "authentication required")
 		return
@@ -141,7 +140,7 @@ func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
-	userID, hasUser := auth.UserIDFromContext(r.Context())
+	userID, hasUser := UserIDFromContext(r.Context())
 	if !hasUser {
 		unauthorized(w, "authentication required")
 		return
@@ -174,7 +173,7 @@ func (h *AuthHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
-	userID, hasUser := auth.UserIDFromContext(r.Context())
+	userID, hasUser := UserIDFromContext(r.Context())
 	if !hasUser {
 		unauthorized(w, "authentication required")
 		return
@@ -257,7 +256,7 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) LogoutAll(w http.ResponseWriter, r *http.Request) {
-	userID, hasUser := auth.UserIDFromContext(r.Context())
+	userID, hasUser := UserIDFromContext(r.Context())
 	if !hasUser {
 		unauthorized(w, "authentication required")
 		return
@@ -275,7 +274,7 @@ func (h *AuthHandler) LogoutAll(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) DeleteMe(w http.ResponseWriter, r *http.Request) {
-	userID, hasUser := auth.UserIDFromContext(r.Context())
+	userID, hasUser := UserIDFromContext(r.Context())
 	if !hasUser {
 		unauthorized(w, "authentication required")
 		return

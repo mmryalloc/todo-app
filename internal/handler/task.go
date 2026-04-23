@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/mmryalloc/tody/internal/auth"
 	"github.com/mmryalloc/tody/internal/entity"
 	"github.com/mmryalloc/tody/internal/pagination"
 	"github.com/mmryalloc/tody/internal/service"
@@ -53,7 +52,7 @@ func NewTaskHandler(svc TaskService) *TaskHandler {
 }
 
 func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
-	userID, hasUser := auth.UserIDFromContext(r.Context())
+	userID, hasUser := UserIDFromContext(r.Context())
 	if !hasUser {
 		unauthorized(w, "authentication required")
 		return
@@ -93,7 +92,7 @@ func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TaskHandler) ListTasks(w http.ResponseWriter, r *http.Request) {
-	userID, hasUser := auth.UserIDFromContext(r.Context())
+	userID, hasUser := UserIDFromContext(r.Context())
 	if !hasUser {
 		unauthorized(w, "authentication required")
 		return
@@ -136,7 +135,7 @@ func (h *TaskHandler) ListTasks(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TaskHandler) GetTask(w http.ResponseWriter, r *http.Request) {
-	userID, hasUser := auth.UserIDFromContext(r.Context())
+	userID, hasUser := UserIDFromContext(r.Context())
 	if !hasUser {
 		unauthorized(w, "authentication required")
 		return
@@ -162,7 +161,7 @@ func (h *TaskHandler) GetTask(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TaskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
-	userID, hasUser := auth.UserIDFromContext(r.Context())
+	userID, hasUser := UserIDFromContext(r.Context())
 	if !hasUser {
 		unauthorized(w, "authentication required")
 		return
@@ -206,7 +205,7 @@ func (h *TaskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TaskHandler) DeleteTask(w http.ResponseWriter, r *http.Request) {
-	userID, hasUser := auth.UserIDFromContext(r.Context())
+	userID, hasUser := UserIDFromContext(r.Context())
 	if !hasUser {
 		unauthorized(w, "authentication required")
 		return

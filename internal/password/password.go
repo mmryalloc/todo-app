@@ -1,4 +1,4 @@
-package auth
+package password
 
 import (
 	"errors"
@@ -7,9 +7,9 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var ErrInvalidPassword = errors.New("invalid password")
+var ErrInvalid = errors.New("invalid password")
 
-func HashPassword(password string) (string, error) {
+func Hash(password string) (string, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return "", fmt.Errorf("hash password: %w", err)
@@ -17,10 +17,10 @@ func HashPassword(password string) (string, error) {
 	return string(hash), nil
 }
 
-func VerifyPassword(hash, password string) error {
+func Verify(hash, password string) error {
 	if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)); err != nil {
 		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
-			return ErrInvalidPassword
+			return ErrInvalid
 		}
 		return fmt.Errorf("verify password: %w", err)
 	}

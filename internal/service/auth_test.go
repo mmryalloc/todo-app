@@ -8,6 +8,7 @@ import (
 
 	"github.com/mmryalloc/tody/internal/auth"
 	"github.com/mmryalloc/tody/internal/entity"
+	"github.com/mmryalloc/tody/internal/password"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -99,7 +100,7 @@ func TestRegister(t *testing.T) {
 					CreateFunc: func(ctx context.Context, u *entity.User) error {
 						assert.Equal(t, "foo@example.com", u.Email)
 						assert.NotEqual(t, "supersecret", u.PasswordHash, "password must be hashed")
-						require.NoError(t, auth.VerifyPassword(u.PasswordHash, "supersecret"))
+						require.NoError(t, password.Verify(u.PasswordHash, "supersecret"))
 						u.ID = 42
 						return nil
 					},
@@ -153,8 +154,8 @@ func TestRegister(t *testing.T) {
 }
 
 func TestLogin(t *testing.T) {
-	const password = "supersecret"
-	hash, err := auth.HashPassword(password)
+	const pwd = "supersecret"
+	hash, err := password.Hash(pwd)
 	require.NoError(t, err)
 
 	stored := entity.User{ID: 7, Email: "user@example.com", PasswordHash: hash}
@@ -170,7 +171,7 @@ func TestLogin(t *testing.T) {
 		{
 			name:     "success issues tokens and persists session",
 			email:    "USER@example.com",
-			password: password,
+			password: pwd,
 			users: func(t *testing.T) UserRepository {
 				return &mockUserRepository{
 					GetByEmailFunc: func(ctx context.Context, email string) (entity.User, error) {
@@ -196,7 +197,7 @@ func TestLogin(t *testing.T) {
 		{
 			name:     "user not found",
 			email:    "missing@example.com",
-			password: password,
+			password: pwd,
 			users: func(t *testing.T) UserRepository {
 				return &mockUserRepository{
 					GetByEmailFunc: func(ctx context.Context, email string) (entity.User, error) {
@@ -309,7 +310,7 @@ func TestUpdateMe(t *testing.T) {
 
 func TestChangePassword(t *testing.T) {
 	const oldPassword = "old-password"
-	hash, err := auth.HashPassword(oldPassword)
+	hash, err := password.Hash(oldPassword)
 	require.NoError(t, err)
 
 	t.Run("success updates password and revokes other sessions", func(t *testing.T) {
@@ -322,7 +323,7 @@ func TestChangePassword(t *testing.T) {
 			UpdatePasswordHashFunc: func(ctx context.Context, id int64, newHash string) error {
 				updated = true
 				assert.Equal(t, int64(7), id)
-				assert.NoError(t, auth.VerifyPassword(newHash, "new-password"))
+				assert.NoError(t, password.Verify(newHash, "new-password"))
 				return nil
 			},
 		}

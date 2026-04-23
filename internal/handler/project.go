@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/mmryalloc/tody/internal/auth"
 	"github.com/mmryalloc/tody/internal/entity"
 	"github.com/mmryalloc/tody/internal/pagination"
 	"github.com/mmryalloc/tody/internal/service"
@@ -84,7 +83,7 @@ func NewProjectHandler(svc ProjectService) *ProjectHandler {
 }
 
 func (h *ProjectHandler) CreateProject(w http.ResponseWriter, r *http.Request) {
-	userID, hasUser := auth.UserIDFromContext(r.Context())
+	userID, hasUser := UserIDFromContext(r.Context())
 	if !hasUser {
 		unauthorized(w, "authentication required")
 		return
@@ -109,7 +108,7 @@ func (h *ProjectHandler) CreateProject(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ProjectHandler) ListProjects(w http.ResponseWriter, r *http.Request) {
-	userID, hasUser := auth.UserIDFromContext(r.Context())
+	userID, hasUser := UserIDFromContext(r.Context())
 	if !hasUser {
 		unauthorized(w, "authentication required")
 		return
@@ -133,7 +132,7 @@ func (h *ProjectHandler) ListProjects(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ProjectHandler) GetProject(w http.ResponseWriter, r *http.Request) {
-	userID, hasUser := auth.UserIDFromContext(r.Context())
+	userID, hasUser := UserIDFromContext(r.Context())
 	if !hasUser {
 		unauthorized(w, "authentication required")
 		return
@@ -159,7 +158,7 @@ func (h *ProjectHandler) GetProject(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ProjectHandler) UpdateProject(w http.ResponseWriter, r *http.Request) {
-	userID, hasUser := auth.UserIDFromContext(r.Context())
+	userID, hasUser := UserIDFromContext(r.Context())
 	if !hasUser {
 		unauthorized(w, "authentication required")
 		return
@@ -192,7 +191,7 @@ func (h *ProjectHandler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ProjectHandler) DeleteProject(w http.ResponseWriter, r *http.Request) {
-	userID, hasUser := auth.UserIDFromContext(r.Context())
+	userID, hasUser := UserIDFromContext(r.Context())
 	if !hasUser {
 		unauthorized(w, "authentication required")
 		return
@@ -217,7 +216,7 @@ func (h *ProjectHandler) DeleteProject(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ProjectHandler) InviteMember(w http.ResponseWriter, r *http.Request) {
-	userID, hasUser := auth.UserIDFromContext(r.Context())
+	userID, hasUser := UserIDFromContext(r.Context())
 	if !hasUser {
 		unauthorized(w, "authentication required")
 		return
@@ -258,7 +257,7 @@ func (h *ProjectHandler) InviteMember(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ProjectHandler) ListMembers(w http.ResponseWriter, r *http.Request) {
-	userID, hasUser := auth.UserIDFromContext(r.Context())
+	userID, hasUser := UserIDFromContext(r.Context())
 	if !hasUser {
 		unauthorized(w, "authentication required")
 		return
@@ -287,7 +286,7 @@ func (h *ProjectHandler) ListMembers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ProjectHandler) UpdateMemberRole(w http.ResponseWriter, r *http.Request) {
-	userID, hasUser := auth.UserIDFromContext(r.Context())
+	userID, hasUser := UserIDFromContext(r.Context())
 	if !hasUser {
 		unauthorized(w, "authentication required")
 		return
@@ -323,7 +322,7 @@ func (h *ProjectHandler) UpdateMemberRole(w http.ResponseWriter, r *http.Request
 }
 
 func (h *ProjectHandler) RemoveMember(w http.ResponseWriter, r *http.Request) {
-	userID, hasUser := auth.UserIDFromContext(r.Context())
+	userID, hasUser := UserIDFromContext(r.Context())
 	if !hasUser {
 		unauthorized(w, "authentication required")
 		return

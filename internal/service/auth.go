@@ -9,6 +9,7 @@ import (
 
 	"github.com/mmryalloc/tody/internal/auth"
 	"github.com/mmryalloc/tody/internal/entity"
+	"github.com/mmryalloc/tody/internal/password"
 )
 
 var (
@@ -71,8 +72,8 @@ func NewAuthService(users UserRepository, sessions SessionRepository, tokens Tok
 	}
 }
 
-func (s *authService) Register(ctx context.Context, email, password string) (entity.User, error) {
-	hash, err := auth.HashPassword(password)
+func (s *authService) Register(ctx context.Context, email, pwd string) (entity.User, error) {
+	hash, err := password.Hash(pwd)
 	if err != nil {
 		return entity.User{}, fmt.Errorf("service auth register: %w", err)
 	}
@@ -136,8 +137,8 @@ func (s *authService) ChangePassword(ctx context.Context, userID int64, currentP
 		return fmt.Errorf("service auth change password lookup: %w", err)
 	}
 
-	if err := auth.VerifyPassword(u.PasswordHash, currentPassword); err != nil {
-		if errors.Is(err, auth.ErrInvalidPassword) {
+	if err := password.Verify(u.PasswordHash, currentPassword); err != nil {
+		if errors.Is(err, password.ErrInvalid) {
 			return ErrInvalidCredentials
 		}
 		return fmt.Errorf("service auth change password verify: %w", err)
@@ -152,7 +153,7 @@ func (s *authService) ChangePassword(ctx context.Context, userID int64, currentP
 		return ErrInvalidSession
 	}
 
-	hash, err := auth.HashPassword(newPassword)
+	hash, err := password.Hash(newPassword)
 	if err != nil {
 		return fmt.Errorf("service auth change password hash: %w", err)
 	}
@@ -183,7 +184,7 @@ func (s *authService) DeleteMe(ctx context.Context, userID int64) error {
 	return nil
 }
 
-func (s *authService) Login(ctx context.Context, email, password string, sc SessionContext) (TokenPair, error) {
+func (s *authService) Login(ctx context.Context, email, pwd string, sc SessionContext) (TokenPair, error) {
 	u, err := s.users.GetByEmail(ctx, strings.ToLower(strings.TrimSpace(email)))
 	if err != nil {
 		if errors.Is(err, entity.ErrUserNotFound) {
@@ -192,8 +193,8 @@ func (s *authService) Login(ctx context.Context, email, password string, sc Sess
 		return TokenPair{}, fmt.Errorf("service auth login lookup: %w", err)
 	}
 
-	if err := auth.VerifyPassword(u.PasswordHash, password); err != nil {
-		if errors.Is(err, auth.ErrInvalidPassword) {
+	if err := password.Verify(u.PasswordHash, pwd); err != nil {
+		if errors.Is(err, password.ErrInvalid) {
 			return TokenPair{}, ErrInvalidCredentials
 		}
 		return TokenPair{}, fmt.Errorf("service auth login verify: %w", err)

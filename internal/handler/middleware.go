@@ -4,8 +4,6 @@ import (
 	"log/slog"
 	"net/http"
 	"runtime/debug"
-
-	"github.com/mmryalloc/tody/internal/auth"
 )
 
 type TokenParser interface {
@@ -27,7 +25,7 @@ func requireAuth(parser TokenParser) func(http.Handler) http.Handler {
 				return
 			}
 
-			ctx := auth.WithUserID(r.Context(), userID)
+			ctx := WithUserID(r.Context(), userID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
