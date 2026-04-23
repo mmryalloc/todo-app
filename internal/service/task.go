@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/mmryalloc/tody/internal/entity"
+	"github.com/mmryalloc/tody/internal/pagination"
 )
 
 type CreateTaskInput struct {
@@ -66,25 +67,14 @@ func (s *taskService) CreateTask(ctx context.Context, userID int64, t CreateTask
 	return task, nil
 }
 
-func (s *taskService) ListTasks(ctx context.Context, userID int64, projectID *int64, page, limit int) ([]entity.Task, int, error) {
-	if page < 1 {
-		page = 1
-	}
-	if limit < 1 {
-		limit = 10
-	}
-	if limit > 100 {
-		limit = 100
-	}
-	offset := (page - 1) * limit
-
+func (s *taskService) ListTasks(ctx context.Context, userID int64, projectID *int64, p pagination.Params) ([]entity.Task, int, error) {
 	if projectID != nil {
 		if err := s.ensureProject(ctx, userID, *projectID); err != nil {
 			return nil, 0, err
 		}
 	}
 
-	return s.repo.List(ctx, userID, projectID, limit, offset)
+	return s.repo.List(ctx, userID, projectID, p.Limit, p.Offset)
 }
 
 func (s *taskService) GetTask(ctx context.Context, userID, id int64) (entity.Task, error) {

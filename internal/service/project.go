@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/mmryalloc/tody/internal/entity"
+	"github.com/mmryalloc/tody/internal/pagination"
 )
 
 var ErrDefaultProjectDelete = errors.New("default project cannot be deleted")
@@ -68,19 +69,8 @@ func (s *projectService) CreateProject(ctx context.Context, userID int64, in Cre
 	return p, nil
 }
 
-func (s *projectService) ListProjects(ctx context.Context, userID int64, page, limit int) ([]entity.Project, int, error) {
-	if page < 1 {
-		page = 1
-	}
-	if limit < 1 {
-		limit = 10
-	}
-	if limit > 100 {
-		limit = 100
-	}
-	offset := (page - 1) * limit
-
-	return s.repo.List(ctx, userID, limit, offset)
+func (s *projectService) ListProjects(ctx context.Context, userID int64, p pagination.Params) ([]entity.Project, int, error) {
+	return s.repo.List(ctx, userID, p.Limit, p.Offset)
 }
 
 func (s *projectService) GetProject(ctx context.Context, userID, id int64) (entity.ProjectDetails, error) {

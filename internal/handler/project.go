@@ -10,6 +10,7 @@ import (
 
 	"github.com/mmryalloc/tody/internal/auth"
 	"github.com/mmryalloc/tody/internal/entity"
+	"github.com/mmryalloc/tody/internal/pagination"
 	"github.com/mmryalloc/tody/internal/service"
 )
 
@@ -64,7 +65,7 @@ type projectMemberResponse struct {
 
 type ProjectService interface {
 	CreateProject(ctx context.Context, userID int64, in service.CreateProjectInput) (entity.Project, error)
-	ListProjects(ctx context.Context, userID int64, page, limit int) ([]entity.Project, int, error)
+	ListProjects(ctx context.Context, userID int64, p pagination.Params) ([]entity.Project, int, error)
 	GetProject(ctx context.Context, userID, id int64) (entity.ProjectDetails, error)
 	UpdateProject(ctx context.Context, userID, id int64, in service.UpdateProjectInput) (entity.Project, error)
 	DeleteProject(ctx context.Context, userID, id int64) error
@@ -114,9 +115,9 @@ func (h *ProjectHandler) ListProjects(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	page, limit := pageLimitFromRequest(r)
+	pg := pagination.FromRequest(r)
 
-	projects, total, err := h.svc.ListProjects(r.Context(), userID, page, limit)
+	projects, total, err := h.svc.ListProjects(r.Context(), userID, pg)
 	if err != nil {
 		slog.Error("handler list projects", "error", err)
 		internalError(w, "failed to list projects")
@@ -128,7 +129,7 @@ func (h *ProjectHandler) ListProjects(w http.ResponseWriter, r *http.Request) {
 		res[i] = projectToResponse(p)
 	}
 
-	okPaginated(w, res, page, limit, total)
+	okPaginated(w, res, pg.Page, pg.Limit, total)
 }
 
 func (h *ProjectHandler) GetProject(w http.ResponseWriter, r *http.Request) {

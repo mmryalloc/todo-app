@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/mmryalloc/tody/internal/entity"
+	"github.com/mmryalloc/tody/internal/pagination"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -148,17 +149,15 @@ func TestListTasks(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		page      int
-		limit     int
+		params    pagination.Params
 		mock      func(t *testing.T) TaskRepository
 		wantTasks []entity.Task
 		wantTotal int
 		wantErr   bool
 	}{
 		{
-			name:  "success",
-			page:  1,
-			limit: 10,
+			name:   "success forwards limit and offset",
+			params: pagination.Params{Page: 1, Limit: 10, Offset: 0},
 			mock: func(t *testing.T) TaskRepository {
 				return &mockTaskRepository{
 					ListFunc: func(ctx context.Context, userID int64, projectID *int64, limit, offset int) ([]entity.Task, int, error) {
@@ -174,25 +173,8 @@ func TestListTasks(t *testing.T) {
 			wantTotal: 2,
 		},
 		{
-			name:  "limit clamped to 100",
-			page:  0,
-			limit: 1000,
-			mock: func(t *testing.T) TaskRepository {
-				return &mockTaskRepository{
-					ListFunc: func(ctx context.Context, userID int64, projectID *int64, limit, offset int) ([]entity.Task, int, error) {
-						assert.Equal(t, 100, limit, "limit > 100 must be clamped, not silently replaced")
-						assert.Equal(t, 0, offset, "page < 1 must be normalised to 1")
-						return mockTasks, 2, nil
-					},
-				}
-			},
-			wantTasks: mockTasks,
-			wantTotal: 2,
-		},
-		{
-			name:  "error",
-			page:  1,
-			limit: 10,
+			name:   "error",
+			params: pagination.Params{Page: 1, Limit: 10, Offset: 0},
 			mock: func(t *testing.T) TaskRepository {
 				return &mockTaskRepository{
 					ListFunc: func(ctx context.Context, userID int64, projectID *int64, limit, offset int) ([]entity.Task, int, error) {
@@ -207,7 +189,7 @@ func TestListTasks(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := NewTaskService(tt.mock(t), defaultProjectMock(100))
-			gotTasks, gotTotal, err := s.ListTasks(context.Background(), testUserID, nil, tt.page, tt.limit)
+			gotTasks, gotTotal, err := s.ListTasks(context.Background(), testUserID, nil, tt.params)
 			if tt.wantErr {
 				require.Error(t, err)
 				return

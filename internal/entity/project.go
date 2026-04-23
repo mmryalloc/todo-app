@@ -5,9 +5,11 @@ import (
 	"time"
 )
 
-var ErrProjectNotFound = errors.New("project not found")
-var ErrProjectMemberNotFound = errors.New("project member not found")
-var ErrProjectMemberExists = errors.New("project member already exists")
+var (
+	ErrProjectNotFound       = errors.New("project not found")
+	ErrProjectMemberNotFound = errors.New("project member not found")
+	ErrProjectMemberExists   = errors.New("project member already exists")
+)
 
 type ProjectRole string
 

@@ -9,6 +9,7 @@ import (
 
 	"github.com/mmryalloc/tody/internal/auth"
 	"github.com/mmryalloc/tody/internal/entity"
+	"github.com/mmryalloc/tody/internal/pagination"
 	"github.com/mmryalloc/tody/internal/service"
 )
 
@@ -35,7 +36,7 @@ type taskResponse struct {
 
 type TaskService interface {
 	CreateTask(ctx context.Context, userID int64, t service.CreateTaskInput) (entity.Task, error)
-	ListTasks(ctx context.Context, userID int64, projectID *int64, page, limit int) ([]entity.Task, int, error)
+	ListTasks(ctx context.Context, userID int64, projectID *int64, p pagination.Params) ([]entity.Task, int, error)
 	GetTask(ctx context.Context, userID, id int64) (entity.Task, error)
 	UpdateTask(ctx context.Context, userID, id int64, in service.UpdateTaskInput) (entity.Task, error)
 	DeleteTask(ctx context.Context, userID, id int64) error
@@ -98,7 +99,7 @@ func (h *TaskHandler) ListTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	page, limit := pageLimitFromRequest(r)
+	pg := pagination.FromRequest(r)
 	var projectID *int64
 	if v := r.URL.Query().Get("project_id"); v != "" {
 		id, err := strconv.ParseInt(v, 10, 64)
@@ -109,7 +110,7 @@ func (h *TaskHandler) ListTasks(w http.ResponseWriter, r *http.Request) {
 		projectID = &id
 	}
 
-	tasks, total, err := h.svc.ListTasks(r.Context(), userID, projectID, page, limit)
+	tasks, total, err := h.svc.ListTasks(r.Context(), userID, projectID, pg)
 	if err != nil {
 		if errors.Is(err, entity.ErrProjectNotFound) {
 			notFound(w, "project not found")
@@ -131,7 +132,7 @@ func (h *TaskHandler) ListTasks(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	okPaginated(w, res, page, limit, total)
+	okPaginated(w, res, pg.Page, pg.Limit, total)
 }
 
 func (h *TaskHandler) GetTask(w http.ResponseWriter, r *http.Request) {

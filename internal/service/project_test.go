@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/mmryalloc/tody/internal/entity"
+	"github.com/mmryalloc/tody/internal/pagination"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -101,14 +102,14 @@ func TestListProjects(t *testing.T) {
 	repo := &mockProjectRepository{
 		ListFunc: func(ctx context.Context, userID int64, limit, offset int) ([]entity.Project, int, error) {
 			assert.Equal(t, testUserID, userID)
-			assert.Equal(t, 100, limit)
-			assert.Equal(t, 0, offset)
+			assert.Equal(t, 20, limit)
+			assert.Equal(t, 40, offset)
 			return projects, 1, nil
 		},
 	}
 	s := NewProjectService(repo)
 
-	got, total, err := s.ListProjects(context.Background(), testUserID, 0, 1000)
+	got, total, err := s.ListProjects(context.Background(), testUserID, pagination.Params{Page: 3, Limit: 20, Offset: 40})
 	require.NoError(t, err)
 	assert.Equal(t, projects, got)
 	assert.Equal(t, 1, total)

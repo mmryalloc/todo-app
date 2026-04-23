@@ -10,8 +10,10 @@ import (
 	"github.com/mmryalloc/tody/internal/entity"
 )
 
-const defaultUserProjectName = "Inbox"
-const defaultUserProjectColor = "#64748B"
+const (
+	defaultUserProjectName  = "Inbox"
+	defaultUserProjectColor = "#64748B"
+)
 
 type projectRepository struct {
 	db *sql.DB
