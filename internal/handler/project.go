@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/mmryalloc/tody/internal/entity"
+	"github.com/mmryalloc/tody/internal/domain"
 	"github.com/mmryalloc/tody/internal/pagination"
 	"github.com/mmryalloc/tody/internal/service"
 )
@@ -63,14 +63,14 @@ type projectMemberResponse struct {
 }
 
 type ProjectService interface {
-	CreateProject(ctx context.Context, userID int64, in service.CreateProjectInput) (entity.Project, error)
-	ListProjects(ctx context.Context, userID int64, p pagination.Params) ([]entity.Project, int, error)
-	GetProject(ctx context.Context, userID, id int64) (entity.ProjectDetails, error)
-	UpdateProject(ctx context.Context, userID, id int64, in service.UpdateProjectInput) (entity.Project, error)
+	CreateProject(ctx context.Context, userID int64, in service.CreateProjectInput) (domain.Project, error)
+	ListProjects(ctx context.Context, userID int64, p pagination.Params) ([]domain.Project, int, error)
+	GetProject(ctx context.Context, userID, id int64) (domain.ProjectDetails, error)
+	UpdateProject(ctx context.Context, userID, id int64, in service.UpdateProjectInput) (domain.Project, error)
 	DeleteProject(ctx context.Context, userID, id int64) error
-	InviteMember(ctx context.Context, actorID, projectID int64, in service.InviteProjectMemberInput) (entity.ProjectMember, error)
-	ListMembers(ctx context.Context, actorID, projectID int64) ([]entity.ProjectMember, error)
-	UpdateMemberRole(ctx context.Context, actorID, projectID, memberID int64, in service.UpdateProjectMemberInput) (entity.ProjectMember, error)
+	InviteMember(ctx context.Context, actorID, projectID int64, in service.InviteProjectMemberInput) (domain.ProjectMember, error)
+	ListMembers(ctx context.Context, actorID, projectID int64) ([]domain.ProjectMember, error)
+	UpdateMemberRole(ctx context.Context, actorID, projectID, memberID int64, in service.UpdateProjectMemberInput) (domain.ProjectMember, error)
 	RemoveMember(ctx context.Context, actorID, projectID, memberID int64) error
 }
 
@@ -145,7 +145,7 @@ func (h *ProjectHandler) GetProject(w http.ResponseWriter, r *http.Request) {
 
 	p, err := h.svc.GetProject(r.Context(), userID, id)
 	if err != nil {
-		if errors.Is(err, entity.ErrProjectNotFound) {
+		if errors.Is(err, domain.ErrProjectNotFound) {
 			notFound(w, "project not found")
 			return
 		}
@@ -234,17 +234,17 @@ func (h *ProjectHandler) InviteMember(w http.ResponseWriter, r *http.Request) {
 
 	member, err := h.svc.InviteMember(r.Context(), userID, projectID, service.InviteProjectMemberInput{
 		Email: req.Email,
-		Role:  entity.ProjectRole(req.Role),
+		Role:  domain.ProjectRole(req.Role),
 	})
 	if err != nil {
 		if handleProjectError(w, err) {
 			return
 		}
-		if errors.Is(err, entity.ErrUserNotFound) {
+		if errors.Is(err, domain.ErrUserNotFound) {
 			notFound(w, "user not found")
 			return
 		}
-		if errors.Is(err, entity.ErrProjectMemberExists) {
+		if errors.Is(err, domain.ErrProjectMemberExists) {
 			conflict(w, "project member already exists")
 			return
 		}
@@ -307,7 +307,7 @@ func (h *ProjectHandler) UpdateMemberRole(w http.ResponseWriter, r *http.Request
 	}
 
 	member, err := h.svc.UpdateMemberRole(r.Context(), userID, projectID, memberID, service.UpdateProjectMemberInput{
-		Role: entity.ProjectRole(req.Role),
+		Role: domain.ProjectRole(req.Role),
 	})
 	if err != nil {
 		if handleProjectError(w, err) {
@@ -370,9 +370,9 @@ func parseMemberUserID(w http.ResponseWriter, r *http.Request) (int64, bool) {
 
 func handleProjectError(w http.ResponseWriter, err error) bool {
 	switch {
-	case errors.Is(err, entity.ErrProjectNotFound):
+	case errors.Is(err, domain.ErrProjectNotFound):
 		notFound(w, "project not found")
-	case errors.Is(err, entity.ErrProjectMemberNotFound):
+	case errors.Is(err, domain.ErrProjectMemberNotFound):
 		notFound(w, "project member not found")
 	case errors.Is(err, service.ErrDefaultProjectDelete):
 		conflict(w, "default project cannot be deleted")
@@ -388,7 +388,7 @@ func handleProjectError(w http.ResponseWriter, err error) bool {
 	return true
 }
 
-func projectToResponse(p entity.Project) projectResponse {
+func projectToResponse(p domain.Project) projectResponse {
 	return projectResponse{
 		ID:        p.ID,
 		Name:      p.Name,
@@ -399,7 +399,7 @@ func projectToResponse(p entity.Project) projectResponse {
 	}
 }
 
-func projectDetailsToResponse(p entity.ProjectDetails) projectDetailsResponse {
+func projectDetailsToResponse(p domain.ProjectDetails) projectDetailsResponse {
 	return projectDetailsResponse{
 		ID:             p.ID,
 		Name:           p.Name,
@@ -413,7 +413,7 @@ func projectDetailsToResponse(p entity.ProjectDetails) projectDetailsResponse {
 	}
 }
 
-func projectMemberToResponse(m entity.ProjectMember) projectMemberResponse {
+func projectMemberToResponse(m domain.ProjectMember) projectMemberResponse {
 	return projectMemberResponse{
 		UserID:    m.UserID,
 		Email:     m.Email,

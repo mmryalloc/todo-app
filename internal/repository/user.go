@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mmryalloc/tody/internal/entity"
+	"github.com/mmryalloc/tody/internal/domain"
 )
 
 type userRepository struct {
@@ -18,7 +18,7 @@ func NewUserRepository(db *sql.DB) *userRepository {
 	return &userRepository{db: db}
 }
 
-func (r *userRepository) Create(ctx context.Context, u *entity.User) error {
+func (r *userRepository) Create(ctx context.Context, u *domain.User) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("repository user create begin tx: %w", err)
@@ -45,7 +45,7 @@ func (r *userRepository) Create(ctx context.Context, u *entity.User) error {
 
 	if err != nil {
 		if isUniqueViolation(err) {
-			return entity.ErrUserExists
+			return domain.ErrUserExists
 		}
 		return fmt.Errorf("repository user create: %w", err)
 	}
@@ -73,22 +73,22 @@ func (r *userRepository) Create(ctx context.Context, u *entity.User) error {
 	return nil
 }
 
-func (r *userRepository) GetByEmail(ctx context.Context, email string) (entity.User, error) {
+func (r *userRepository) GetByEmail(ctx context.Context, email string) (domain.User, error) {
 	query := `
 		SELECT id, email, name, password_hash, created_at, updated_at, deleted_at
 		FROM users
 		WHERE email = $1 AND deleted_at IS NULL
 	`
-	var u entity.User
+	var u domain.User
 	var deletedAt sql.NullTime
 	err := r.db.QueryRowContext(ctx, query, strings.ToLower(email)).Scan(
 		&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.CreatedAt, &u.UpdatedAt, &deletedAt,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return entity.User{}, entity.ErrUserNotFound
+			return domain.User{}, domain.ErrUserNotFound
 		}
-		return entity.User{}, fmt.Errorf("repository user get by email: %w", err)
+		return domain.User{}, fmt.Errorf("repository user get by email: %w", err)
 	}
 	if deletedAt.Valid {
 		u.DeletedAt = &deletedAt.Time
@@ -96,22 +96,22 @@ func (r *userRepository) GetByEmail(ctx context.Context, email string) (entity.U
 	return u, nil
 }
 
-func (r *userRepository) GetByID(ctx context.Context, id int64) (entity.User, error) {
+func (r *userRepository) GetByID(ctx context.Context, id int64) (domain.User, error) {
 	query := `
 		SELECT id, email, name, password_hash, created_at, updated_at, deleted_at
 		FROM users
 		WHERE id = $1 AND deleted_at IS NULL
 	`
-	var u entity.User
+	var u domain.User
 	var deletedAt sql.NullTime
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.CreatedAt, &u.UpdatedAt, &deletedAt,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return entity.User{}, entity.ErrUserNotFound
+			return domain.User{}, domain.ErrUserNotFound
 		}
-		return entity.User{}, fmt.Errorf("repository user get by id: %w", err)
+		return domain.User{}, fmt.Errorf("repository user get by id: %w", err)
 	}
 	if deletedAt.Valid {
 		u.DeletedAt = &deletedAt.Time
@@ -119,7 +119,7 @@ func (r *userRepository) GetByID(ctx context.Context, id int64) (entity.User, er
 	return u, nil
 }
 
-func (r *userRepository) UpdateProfile(ctx context.Context, u *entity.User) error {
+func (r *userRepository) UpdateProfile(ctx context.Context, u *domain.User) error {
 	query := `
 		UPDATE users
 		SET email = $1, name = $2, updated_at = NOW()
@@ -129,10 +129,10 @@ func (r *userRepository) UpdateProfile(ctx context.Context, u *entity.User) erro
 	err := r.db.QueryRowContext(ctx, query, strings.ToLower(u.Email), u.Name, u.ID).Scan(&u.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return entity.ErrUserNotFound
+			return domain.ErrUserNotFound
 		}
 		if isUniqueViolation(err) {
-			return entity.ErrUserExists
+			return domain.ErrUserExists
 		}
 		return fmt.Errorf("repository user update profile: %w", err)
 	}
@@ -154,7 +154,7 @@ func (r *userRepository) UpdatePasswordHash(ctx context.Context, id int64, hash 
 		return fmt.Errorf("repository user update password rows affected: %w", err)
 	}
 	if rowsAffected == 0 {
-		return entity.ErrUserNotFound
+		return domain.ErrUserNotFound
 	}
 	return nil
 }
@@ -174,7 +174,7 @@ func (r *userRepository) SoftDelete(ctx context.Context, id int64) error {
 		return fmt.Errorf("repository user soft delete rows affected: %w", err)
 	}
 	if rowsAffected == 0 {
-		return entity.ErrUserNotFound
+		return domain.ErrUserNotFound
 	}
 	return nil
 }

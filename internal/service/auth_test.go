@@ -7,31 +7,31 @@ import (
 	"time"
 
 	"github.com/mmryalloc/tody/internal/auth"
-	"github.com/mmryalloc/tody/internal/entity"
+	"github.com/mmryalloc/tody/internal/domain"
 	"github.com/mmryalloc/tody/internal/password"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 type mockUserRepository struct {
-	CreateFunc             func(ctx context.Context, u *entity.User) error
-	GetByEmailFunc         func(ctx context.Context, email string) (entity.User, error)
-	GetByIDFunc            func(ctx context.Context, id int64) (entity.User, error)
-	UpdateProfileFunc      func(ctx context.Context, u *entity.User) error
+	CreateFunc             func(ctx context.Context, u *domain.User) error
+	GetByEmailFunc         func(ctx context.Context, email string) (domain.User, error)
+	GetByIDFunc            func(ctx context.Context, id int64) (domain.User, error)
+	UpdateProfileFunc      func(ctx context.Context, u *domain.User) error
 	UpdatePasswordHashFunc func(ctx context.Context, id int64, hash string) error
 	SoftDeleteFunc         func(ctx context.Context, id int64) error
 }
 
-func (m *mockUserRepository) Create(ctx context.Context, u *entity.User) error {
+func (m *mockUserRepository) Create(ctx context.Context, u *domain.User) error {
 	return m.CreateFunc(ctx, u)
 }
-func (m *mockUserRepository) GetByEmail(ctx context.Context, email string) (entity.User, error) {
+func (m *mockUserRepository) GetByEmail(ctx context.Context, email string) (domain.User, error) {
 	return m.GetByEmailFunc(ctx, email)
 }
-func (m *mockUserRepository) GetByID(ctx context.Context, id int64) (entity.User, error) {
+func (m *mockUserRepository) GetByID(ctx context.Context, id int64) (domain.User, error) {
 	return m.GetByIDFunc(ctx, id)
 }
-func (m *mockUserRepository) UpdateProfile(ctx context.Context, u *entity.User) error {
+func (m *mockUserRepository) UpdateProfile(ctx context.Context, u *domain.User) error {
 	return m.UpdateProfileFunc(ctx, u)
 }
 func (m *mockUserRepository) UpdatePasswordHash(ctx context.Context, id int64, hash string) error {
@@ -42,7 +42,7 @@ func (m *mockUserRepository) SoftDelete(ctx context.Context, id int64) error {
 }
 
 type mockSessionRepository struct {
-	SaveFunc                   func(ctx context.Context, userID int64, hash string, s entity.Session, ttl time.Duration) error
+	SaveFunc                   func(ctx context.Context, userID int64, hash string, s domain.Session, ttl time.Duration) error
 	ExistsFunc                 func(ctx context.Context, userID int64, hash string) (bool, error)
 	LookupUserIDFunc           func(ctx context.Context, hash string) (int64, error)
 	DeleteFunc                 func(ctx context.Context, userID int64, hash string) error
@@ -50,7 +50,7 @@ type mockSessionRepository struct {
 	DeleteAllForUserExceptFunc func(ctx context.Context, userID int64, keepHash string) error
 }
 
-func (m *mockSessionRepository) Save(ctx context.Context, userID int64, hash string, s entity.Session, ttl time.Duration) error {
+func (m *mockSessionRepository) Save(ctx context.Context, userID int64, hash string, s domain.Session, ttl time.Duration) error {
 	return m.SaveFunc(ctx, userID, hash, s, ttl)
 }
 func (m *mockSessionRepository) Exists(ctx context.Context, userID int64, hash string) (bool, error) {
@@ -97,7 +97,7 @@ func TestRegister(t *testing.T) {
 			pass:  "supersecret",
 			mock: func(t *testing.T) UserRepository {
 				return &mockUserRepository{
-					CreateFunc: func(ctx context.Context, u *entity.User) error {
+					CreateFunc: func(ctx context.Context, u *domain.User) error {
 						assert.Equal(t, "foo@example.com", u.Email)
 						assert.NotEqual(t, "supersecret", u.PasswordHash, "password must be hashed")
 						require.NoError(t, password.Verify(u.PasswordHash, "supersecret"))
@@ -113,8 +113,8 @@ func TestRegister(t *testing.T) {
 			pass:  "supersecret",
 			mock: func(t *testing.T) UserRepository {
 				return &mockUserRepository{
-					CreateFunc: func(ctx context.Context, u *entity.User) error {
-						return entity.ErrUserExists
+					CreateFunc: func(ctx context.Context, u *domain.User) error {
+						return domain.ErrUserExists
 					},
 				}
 			},
@@ -126,7 +126,7 @@ func TestRegister(t *testing.T) {
 			pass:  "supersecret",
 			mock: func(t *testing.T) UserRepository {
 				return &mockUserRepository{
-					CreateFunc: func(ctx context.Context, u *entity.User) error {
+					CreateFunc: func(ctx context.Context, u *domain.User) error {
 						return errors.New("db down")
 					},
 				}
@@ -158,7 +158,7 @@ func TestLogin(t *testing.T) {
 	hash, err := password.Hash(pwd)
 	require.NoError(t, err)
 
-	stored := entity.User{ID: 7, Email: "user@example.com", PasswordHash: hash}
+	stored := domain.User{ID: 7, Email: "user@example.com", PasswordHash: hash}
 
 	tests := []struct {
 		name     string
@@ -174,7 +174,7 @@ func TestLogin(t *testing.T) {
 			password: pwd,
 			users: func(t *testing.T) UserRepository {
 				return &mockUserRepository{
-					GetByEmailFunc: func(ctx context.Context, email string) (entity.User, error) {
+					GetByEmailFunc: func(ctx context.Context, email string) (domain.User, error) {
 						assert.Equal(t, "user@example.com", email)
 						return stored, nil
 					},
@@ -182,7 +182,7 @@ func TestLogin(t *testing.T) {
 			},
 			sessions: func(t *testing.T) SessionRepository {
 				return &mockSessionRepository{
-					SaveFunc: func(ctx context.Context, userID int64, hash string, s entity.Session, ttl time.Duration) error {
+					SaveFunc: func(ctx context.Context, userID int64, hash string, s domain.Session, ttl time.Duration) error {
 						assert.Equal(t, int64(7), userID)
 						assert.Len(t, hash, 64, "sha256 hex")
 						assert.Equal(t, testRefreshTTL, ttl)
@@ -200,8 +200,8 @@ func TestLogin(t *testing.T) {
 			password: pwd,
 			users: func(t *testing.T) UserRepository {
 				return &mockUserRepository{
-					GetByEmailFunc: func(ctx context.Context, email string) (entity.User, error) {
-						return entity.User{}, entity.ErrUserNotFound
+					GetByEmailFunc: func(ctx context.Context, email string) (domain.User, error) {
+						return domain.User{}, domain.ErrUserNotFound
 					},
 				}
 			},
@@ -214,7 +214,7 @@ func TestLogin(t *testing.T) {
 			password: "wrong-password",
 			users: func(t *testing.T) UserRepository {
 				return &mockUserRepository{
-					GetByEmailFunc: func(ctx context.Context, email string) (entity.User, error) {
+					GetByEmailFunc: func(ctx context.Context, email string) (domain.User, error) {
 						return stored, nil
 					},
 				}
@@ -243,9 +243,9 @@ func TestLogin(t *testing.T) {
 func TestGetMe(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		users := &mockUserRepository{
-			GetByIDFunc: func(ctx context.Context, id int64) (entity.User, error) {
+			GetByIDFunc: func(ctx context.Context, id int64) (domain.User, error) {
 				assert.Equal(t, int64(7), id)
-				return entity.User{ID: 7, Email: "user@example.com", Name: "User"}, nil
+				return domain.User{ID: 7, Email: "user@example.com", Name: "User"}, nil
 			},
 		}
 		s := NewAuthService(users, &mockSessionRepository{}, &stubTokenIssuer{token: "x"}, testRefreshTTL)
@@ -257,24 +257,24 @@ func TestGetMe(t *testing.T) {
 
 	t.Run("not found", func(t *testing.T) {
 		users := &mockUserRepository{
-			GetByIDFunc: func(ctx context.Context, id int64) (entity.User, error) {
-				return entity.User{}, entity.ErrUserNotFound
+			GetByIDFunc: func(ctx context.Context, id int64) (domain.User, error) {
+				return domain.User{}, domain.ErrUserNotFound
 			},
 		}
 		s := NewAuthService(users, &mockSessionRepository{}, &stubTokenIssuer{token: "x"}, testRefreshTTL)
 
 		_, err := s.GetMe(context.Background(), 7)
-		require.ErrorIs(t, err, entity.ErrUserNotFound)
+		require.ErrorIs(t, err, domain.ErrUserNotFound)
 	})
 }
 
 func TestUpdateMe(t *testing.T) {
 	t.Run("success normalises email and trims name", func(t *testing.T) {
 		users := &mockUserRepository{
-			GetByIDFunc: func(ctx context.Context, id int64) (entity.User, error) {
-				return entity.User{ID: id, Email: "old@example.com", Name: "Old"}, nil
+			GetByIDFunc: func(ctx context.Context, id int64) (domain.User, error) {
+				return domain.User{ID: id, Email: "old@example.com", Name: "Old"}, nil
 			},
-			UpdateProfileFunc: func(ctx context.Context, u *entity.User) error {
+			UpdateProfileFunc: func(ctx context.Context, u *domain.User) error {
 				assert.Equal(t, int64(7), u.ID)
 				assert.Equal(t, "new@example.com", u.Email)
 				assert.Equal(t, "New Name", u.Name)
@@ -294,11 +294,11 @@ func TestUpdateMe(t *testing.T) {
 
 	t.Run("duplicate email", func(t *testing.T) {
 		users := &mockUserRepository{
-			GetByIDFunc: func(ctx context.Context, id int64) (entity.User, error) {
-				return entity.User{ID: id}, nil
+			GetByIDFunc: func(ctx context.Context, id int64) (domain.User, error) {
+				return domain.User{ID: id}, nil
 			},
-			UpdateProfileFunc: func(ctx context.Context, u *entity.User) error {
-				return entity.ErrUserExists
+			UpdateProfileFunc: func(ctx context.Context, u *domain.User) error {
+				return domain.ErrUserExists
 			},
 		}
 		s := NewAuthService(users, &mockSessionRepository{}, &stubTokenIssuer{token: "x"}, testRefreshTTL)
@@ -317,8 +317,8 @@ func TestChangePassword(t *testing.T) {
 		updated := false
 		revoked := false
 		users := &mockUserRepository{
-			GetByIDFunc: func(ctx context.Context, id int64) (entity.User, error) {
-				return entity.User{ID: id, PasswordHash: hash}, nil
+			GetByIDFunc: func(ctx context.Context, id int64) (domain.User, error) {
+				return domain.User{ID: id, PasswordHash: hash}, nil
 			},
 			UpdatePasswordHashFunc: func(ctx context.Context, id int64, newHash string) error {
 				updated = true
@@ -350,8 +350,8 @@ func TestChangePassword(t *testing.T) {
 
 	t.Run("invalid current session", func(t *testing.T) {
 		users := &mockUserRepository{
-			GetByIDFunc: func(ctx context.Context, id int64) (entity.User, error) {
-				return entity.User{ID: id, PasswordHash: hash}, nil
+			GetByIDFunc: func(ctx context.Context, id int64) (domain.User, error) {
+				return domain.User{ID: id, PasswordHash: hash}, nil
 			},
 			UpdatePasswordHashFunc: func(ctx context.Context, id int64, newHash string) error {
 				t.Fatal("password must not be updated")
@@ -371,8 +371,8 @@ func TestChangePassword(t *testing.T) {
 
 	t.Run("wrong current password", func(t *testing.T) {
 		users := &mockUserRepository{
-			GetByIDFunc: func(ctx context.Context, id int64) (entity.User, error) {
-				return entity.User{ID: id, PasswordHash: hash}, nil
+			GetByIDFunc: func(ctx context.Context, id int64) (domain.User, error) {
+				return domain.User{ID: id, PasswordHash: hash}, nil
 			},
 			UpdatePasswordHashFunc: func(ctx context.Context, id int64, newHash string) error {
 				t.Fatal("password must not be updated")
@@ -421,7 +421,7 @@ func TestRefresh(t *testing.T) {
 			LookupUserIDFunc: func(ctx context.Context, hash string) (int64, error) {
 				return 9, nil
 			},
-			SaveFunc: func(ctx context.Context, userID int64, hash string, s entity.Session, ttl time.Duration) error {
+			SaveFunc: func(ctx context.Context, userID int64, hash string, s domain.Session, ttl time.Duration) error {
 				savedHash = hash
 				return nil
 			},
@@ -446,7 +446,7 @@ func TestRefresh(t *testing.T) {
 	t.Run("unknown token returns ErrInvalidSession", func(t *testing.T) {
 		sessions := &mockSessionRepository{
 			LookupUserIDFunc: func(ctx context.Context, hash string) (int64, error) {
-				return 0, entity.ErrSessionNotFound
+				return 0, domain.ErrSessionNotFound
 			},
 		}
 		s := NewAuthService(&mockUserRepository{}, sessions, &stubTokenIssuer{token: "x"}, testRefreshTTL)
@@ -459,7 +459,7 @@ func TestRefresh(t *testing.T) {
 		deleted := false
 		sessions := &mockSessionRepository{
 			LookupUserIDFunc: func(ctx context.Context, hash string) (int64, error) { return 1, nil },
-			SaveFunc: func(ctx context.Context, userID int64, hash string, s entity.Session, ttl time.Duration) error {
+			SaveFunc: func(ctx context.Context, userID int64, hash string, s domain.Session, ttl time.Duration) error {
 				return errors.New("redis down")
 			},
 			DeleteFunc: func(ctx context.Context, userID int64, hash string) error {
@@ -496,7 +496,7 @@ func TestLogout(t *testing.T) {
 	t.Run("missing session is not an error", func(t *testing.T) {
 		sessions := &mockSessionRepository{
 			LookupUserIDFunc: func(ctx context.Context, hash string) (int64, error) {
-				return 0, entity.ErrSessionNotFound
+				return 0, domain.ErrSessionNotFound
 			},
 		}
 		s := NewAuthService(&mockUserRepository{}, sessions, &stubTokenIssuer{token: "x"}, testRefreshTTL)

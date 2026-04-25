@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/mmryalloc/tody/internal/entity"
+	"github.com/mmryalloc/tody/internal/domain"
 	"github.com/mmryalloc/tody/internal/service"
 )
 
@@ -44,9 +44,9 @@ type userResponse struct {
 }
 
 type AuthService interface {
-	Register(ctx context.Context, email, password string) (entity.User, error)
-	GetMe(ctx context.Context, userID int64) (entity.User, error)
-	UpdateMe(ctx context.Context, userID int64, in service.UpdateUserInput) (entity.User, error)
+	Register(ctx context.Context, email, password string) (domain.User, error)
+	GetMe(ctx context.Context, userID int64) (domain.User, error)
+	UpdateMe(ctx context.Context, userID int64, in service.UpdateUserInput) (domain.User, error)
 	ChangePassword(ctx context.Context, userID int64, currentPassword, newPassword, currentRefreshToken string) error
 	DeleteMe(ctx context.Context, userID int64) error
 	Login(ctx context.Context, email, password string, sc service.SessionContext) (service.TokenPair, error)
@@ -127,7 +127,7 @@ func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 
 	u, err := h.svc.GetMe(r.Context(), userID)
 	if err != nil {
-		if errors.Is(err, entity.ErrUserNotFound) {
+		if errors.Is(err, domain.ErrUserNotFound) {
 			notFound(w, "user not found")
 			return
 		}
@@ -160,7 +160,7 @@ func (h *AuthHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 			conflict(w, "email already registered")
 			return
 		}
-		if errors.Is(err, entity.ErrUserNotFound) {
+		if errors.Is(err, domain.ErrUserNotFound) {
 			notFound(w, "user not found")
 			return
 		}
@@ -202,7 +202,7 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 			unauthorized(w, "invalid or expired session")
 			return
 		}
-		if errors.Is(err, entity.ErrUserNotFound) {
+		if errors.Is(err, domain.ErrUserNotFound) {
 			notFound(w, "user not found")
 			return
 		}
@@ -281,7 +281,7 @@ func (h *AuthHandler) DeleteMe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.svc.DeleteMe(r.Context(), userID); err != nil {
-		if errors.Is(err, entity.ErrUserNotFound) {
+		if errors.Is(err, domain.ErrUserNotFound) {
 			notFound(w, "user not found")
 			return
 		}
@@ -302,7 +302,7 @@ func sessionContextFromRequest(r *http.Request) service.SessionContext {
 	}
 }
 
-func writeUser(w http.ResponseWriter, u entity.User) {
+func writeUser(w http.ResponseWriter, u domain.User) {
 	ok(w, userResponse{
 		ID:    u.ID,
 		Email: u.Email,

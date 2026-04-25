@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/mmryalloc/tody/internal/entity"
+	"github.com/mmryalloc/tody/internal/domain"
 	"github.com/mmryalloc/tody/internal/pagination"
 )
 
@@ -26,25 +26,25 @@ type UpdateProjectInput struct {
 
 type InviteProjectMemberInput struct {
 	Email string
-	Role  entity.ProjectRole
+	Role  domain.ProjectRole
 }
 
 type UpdateProjectMemberInput struct {
-	Role entity.ProjectRole
+	Role domain.ProjectRole
 }
 
 type ProjectRepository interface {
-	Create(ctx context.Context, p *entity.Project) error
-	List(ctx context.Context, userID int64, limit, offset int) ([]entity.Project, int, error)
-	GetByID(ctx context.Context, userID, id int64) (entity.Project, error)
-	GetDetails(ctx context.Context, userID, id int64) (entity.ProjectDetails, error)
-	Update(ctx context.Context, p *entity.Project) error
+	Create(ctx context.Context, p *domain.Project) error
+	List(ctx context.Context, userID int64, limit, offset int) ([]domain.Project, int, error)
+	GetByID(ctx context.Context, userID, id int64) (domain.Project, error)
+	GetDetails(ctx context.Context, userID, id int64) (domain.ProjectDetails, error)
+	Update(ctx context.Context, p *domain.Project) error
 	Delete(ctx context.Context, userID, id int64) error
-	GetRole(ctx context.Context, projectID, userID int64) (entity.ProjectRole, error)
-	AddMemberByEmail(ctx context.Context, projectID int64, email string, role entity.ProjectRole) (entity.ProjectMember, error)
-	ListMembers(ctx context.Context, projectID int64) ([]entity.ProjectMember, error)
-	GetMember(ctx context.Context, projectID, userID int64) (entity.ProjectMember, error)
-	UpdateMemberRole(ctx context.Context, projectID, userID int64, role entity.ProjectRole) (entity.ProjectMember, error)
+	GetRole(ctx context.Context, projectID, userID int64) (domain.ProjectRole, error)
+	AddMemberByEmail(ctx context.Context, projectID int64, email string, role domain.ProjectRole) (domain.ProjectMember, error)
+	ListMembers(ctx context.Context, projectID int64) ([]domain.ProjectMember, error)
+	GetMember(ctx context.Context, projectID, userID int64) (domain.ProjectMember, error)
+	UpdateMemberRole(ctx context.Context, projectID, userID int64, role domain.ProjectRole) (domain.ProjectMember, error)
 	DeleteMember(ctx context.Context, projectID, userID int64) error
 	CountOwners(ctx context.Context, projectID int64) (int, error)
 }
@@ -57,47 +57,47 @@ func NewProjectService(repo ProjectRepository) *projectService {
 	return &projectService{repo: repo}
 }
 
-func (s *projectService) CreateProject(ctx context.Context, userID int64, in CreateProjectInput) (entity.Project, error) {
-	p := entity.Project{
+func (s *projectService) CreateProject(ctx context.Context, userID int64, in CreateProjectInput) (domain.Project, error) {
+	p := domain.Project{
 		UserID: userID,
 		Name:   in.Name,
 		Color:  in.Color,
 	}
 	if err := s.repo.Create(ctx, &p); err != nil {
-		return entity.Project{}, fmt.Errorf("service project create: %w", err)
+		return domain.Project{}, fmt.Errorf("service project create: %w", err)
 	}
 	return p, nil
 }
 
-func (s *projectService) ListProjects(ctx context.Context, userID int64, p pagination.Params) ([]entity.Project, int, error) {
+func (s *projectService) ListProjects(ctx context.Context, userID int64, p pagination.Params) ([]domain.Project, int, error) {
 	return s.repo.List(ctx, userID, p.Limit, p.Offset)
 }
 
-func (s *projectService) GetProject(ctx context.Context, userID, id int64) (entity.ProjectDetails, error) {
+func (s *projectService) GetProject(ctx context.Context, userID, id int64) (domain.ProjectDetails, error) {
 	return s.repo.GetDetails(ctx, userID, id)
 }
 
-func (s *projectService) UpdateProject(ctx context.Context, userID, id int64, in UpdateProjectInput) (entity.Project, error) {
-	if err := s.ensureRole(ctx, id, userID, entity.ProjectRoleOwner, entity.ProjectRoleEditor); err != nil {
-		return entity.Project{}, err
+func (s *projectService) UpdateProject(ctx context.Context, userID, id int64, in UpdateProjectInput) (domain.Project, error) {
+	if err := s.ensureRole(ctx, id, userID, domain.ProjectRoleOwner, domain.ProjectRoleEditor); err != nil {
+		return domain.Project{}, err
 	}
 
 	p, err := s.repo.GetByID(ctx, userID, id)
 	if err != nil {
-		return entity.Project{}, err
+		return domain.Project{}, err
 	}
 
 	p.Name = in.Name
 	p.Color = in.Color
 
 	if err := s.repo.Update(ctx, &p); err != nil {
-		return entity.Project{}, err
+		return domain.Project{}, err
 	}
 	return p, nil
 }
 
 func (s *projectService) DeleteProject(ctx context.Context, userID, id int64) error {
-	if err := s.ensureRole(ctx, id, userID, entity.ProjectRoleOwner); err != nil {
+	if err := s.ensureRole(ctx, id, userID, domain.ProjectRoleOwner); err != nil {
 		return err
 	}
 
@@ -111,38 +111,38 @@ func (s *projectService) DeleteProject(ctx context.Context, userID, id int64) er
 	return s.repo.Delete(ctx, userID, id)
 }
 
-func (s *projectService) InviteMember(ctx context.Context, actorID, projectID int64, in InviteProjectMemberInput) (entity.ProjectMember, error) {
+func (s *projectService) InviteMember(ctx context.Context, actorID, projectID int64, in InviteProjectMemberInput) (domain.ProjectMember, error) {
 	if err := validateProjectRole(in.Role); err != nil {
-		return entity.ProjectMember{}, err
+		return domain.ProjectMember{}, err
 	}
-	if err := s.ensureRole(ctx, projectID, actorID, entity.ProjectRoleOwner); err != nil {
-		return entity.ProjectMember{}, err
+	if err := s.ensureRole(ctx, projectID, actorID, domain.ProjectRoleOwner); err != nil {
+		return domain.ProjectMember{}, err
 	}
 	return s.repo.AddMemberByEmail(ctx, projectID, in.Email, in.Role)
 }
 
-func (s *projectService) ListMembers(ctx context.Context, actorID, projectID int64) ([]entity.ProjectMember, error) {
+func (s *projectService) ListMembers(ctx context.Context, actorID, projectID int64) ([]domain.ProjectMember, error) {
 	if err := s.ensureMember(ctx, projectID, actorID); err != nil {
 		return nil, err
 	}
 	return s.repo.ListMembers(ctx, projectID)
 }
 
-func (s *projectService) UpdateMemberRole(ctx context.Context, actorID, projectID, memberID int64, in UpdateProjectMemberInput) (entity.ProjectMember, error) {
+func (s *projectService) UpdateMemberRole(ctx context.Context, actorID, projectID, memberID int64, in UpdateProjectMemberInput) (domain.ProjectMember, error) {
 	if err := validateProjectRole(in.Role); err != nil {
-		return entity.ProjectMember{}, err
+		return domain.ProjectMember{}, err
 	}
-	if err := s.ensureRole(ctx, projectID, actorID, entity.ProjectRoleOwner); err != nil {
-		return entity.ProjectMember{}, err
+	if err := s.ensureRole(ctx, projectID, actorID, domain.ProjectRoleOwner); err != nil {
+		return domain.ProjectMember{}, err
 	}
 
 	member, err := s.repo.GetMember(ctx, projectID, memberID)
 	if err != nil {
-		return entity.ProjectMember{}, err
+		return domain.ProjectMember{}, err
 	}
-	if member.Role == entity.ProjectRoleOwner && in.Role != entity.ProjectRoleOwner {
+	if member.Role == domain.ProjectRoleOwner && in.Role != domain.ProjectRoleOwner {
 		if err := s.ensureAnotherOwner(ctx, projectID); err != nil {
-			return entity.ProjectMember{}, err
+			return domain.ProjectMember{}, err
 		}
 	}
 
@@ -151,7 +151,7 @@ func (s *projectService) UpdateMemberRole(ctx context.Context, actorID, projectI
 
 func (s *projectService) RemoveMember(ctx context.Context, actorID, projectID, memberID int64) error {
 	if actorID != memberID {
-		if err := s.ensureRole(ctx, projectID, actorID, entity.ProjectRoleOwner); err != nil {
+		if err := s.ensureRole(ctx, projectID, actorID, domain.ProjectRoleOwner); err != nil {
 			return err
 		}
 	} else if err := s.ensureMember(ctx, projectID, actorID); err != nil {
@@ -162,7 +162,7 @@ func (s *projectService) RemoveMember(ctx context.Context, actorID, projectID, m
 	if err != nil {
 		return err
 	}
-	if member.Role == entity.ProjectRoleOwner {
+	if member.Role == domain.ProjectRoleOwner {
 		if err := s.ensureAnotherOwner(ctx, projectID); err != nil {
 			return err
 		}
@@ -176,7 +176,7 @@ func (s *projectService) ensureMember(ctx context.Context, projectID, userID int
 	return err
 }
 
-func (s *projectService) ensureRole(ctx context.Context, projectID, userID int64, allowed ...entity.ProjectRole) error {
+func (s *projectService) ensureRole(ctx context.Context, projectID, userID int64, allowed ...domain.ProjectRole) error {
 	role, err := s.repo.GetRole(ctx, projectID, userID)
 	if err != nil {
 		return err
@@ -200,9 +200,9 @@ func (s *projectService) ensureAnotherOwner(ctx context.Context, projectID int64
 	return nil
 }
 
-func validateProjectRole(role entity.ProjectRole) error {
+func validateProjectRole(role domain.ProjectRole) error {
 	switch role {
-	case entity.ProjectRoleOwner, entity.ProjectRoleEditor, entity.ProjectRoleViewer:
+	case domain.ProjectRoleOwner, domain.ProjectRoleEditor, domain.ProjectRoleViewer:
 		return nil
 	default:
 		return ErrInvalidProjectRole

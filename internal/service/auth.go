@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/mmryalloc/tody/internal/auth"
-	"github.com/mmryalloc/tody/internal/entity"
+	"github.com/mmryalloc/tody/internal/domain"
 	"github.com/mmryalloc/tody/internal/password"
 )
 
@@ -19,16 +19,16 @@ var (
 )
 
 type UserRepository interface {
-	Create(ctx context.Context, u *entity.User) error
-	GetByEmail(ctx context.Context, email string) (entity.User, error)
-	GetByID(ctx context.Context, id int64) (entity.User, error)
-	UpdateProfile(ctx context.Context, u *entity.User) error
+	Create(ctx context.Context, u *domain.User) error
+	GetByEmail(ctx context.Context, email string) (domain.User, error)
+	GetByID(ctx context.Context, id int64) (domain.User, error)
+	UpdateProfile(ctx context.Context, u *domain.User) error
 	UpdatePasswordHash(ctx context.Context, id int64, hash string) error
 	SoftDelete(ctx context.Context, id int64) error
 }
 
 type SessionRepository interface {
-	Save(ctx context.Context, userID int64, tokenHash string, s entity.Session, ttl time.Duration) error
+	Save(ctx context.Context, userID int64, tokenHash string, s domain.Session, ttl time.Duration) error
 	Exists(ctx context.Context, userID int64, tokenHash string) (bool, error)
 	LookupUserID(ctx context.Context, tokenHash string) (int64, error)
 	Delete(ctx context.Context, userID int64, tokenHash string) error
@@ -72,58 +72,58 @@ func NewAuthService(users UserRepository, sessions SessionRepository, tokens Tok
 	}
 }
 
-func (s *authService) Register(ctx context.Context, email, pwd string) (entity.User, error) {
+func (s *authService) Register(ctx context.Context, email, pwd string) (domain.User, error) {
 	hash, err := password.Hash(pwd)
 	if err != nil {
-		return entity.User{}, fmt.Errorf("service auth register: %w", err)
+		return domain.User{}, fmt.Errorf("service auth register: %w", err)
 	}
 
-	u := entity.User{
+	u := domain.User{
 		Email:        strings.ToLower(strings.TrimSpace(email)),
 		PasswordHash: hash,
 	}
 
 	if err := s.users.Create(ctx, &u); err != nil {
-		if errors.Is(err, entity.ErrUserExists) {
-			return entity.User{}, ErrEmailTaken
+		if errors.Is(err, domain.ErrUserExists) {
+			return domain.User{}, ErrEmailTaken
 		}
-		return entity.User{}, fmt.Errorf("service auth register: %w", err)
+		return domain.User{}, fmt.Errorf("service auth register: %w", err)
 	}
 
 	return u, nil
 }
 
-func (s *authService) GetMe(ctx context.Context, userID int64) (entity.User, error) {
+func (s *authService) GetMe(ctx context.Context, userID int64) (domain.User, error) {
 	u, err := s.users.GetByID(ctx, userID)
 	if err != nil {
-		if errors.Is(err, entity.ErrUserNotFound) {
-			return entity.User{}, entity.ErrUserNotFound
+		if errors.Is(err, domain.ErrUserNotFound) {
+			return domain.User{}, domain.ErrUserNotFound
 		}
-		return entity.User{}, fmt.Errorf("service auth get me: %w", err)
+		return domain.User{}, fmt.Errorf("service auth get me: %w", err)
 	}
 	return u, nil
 }
 
-func (s *authService) UpdateMe(ctx context.Context, userID int64, in UpdateUserInput) (entity.User, error) {
+func (s *authService) UpdateMe(ctx context.Context, userID int64, in UpdateUserInput) (domain.User, error) {
 	u, err := s.users.GetByID(ctx, userID)
 	if err != nil {
-		if errors.Is(err, entity.ErrUserNotFound) {
-			return entity.User{}, entity.ErrUserNotFound
+		if errors.Is(err, domain.ErrUserNotFound) {
+			return domain.User{}, domain.ErrUserNotFound
 		}
-		return entity.User{}, fmt.Errorf("service auth update me lookup: %w", err)
+		return domain.User{}, fmt.Errorf("service auth update me lookup: %w", err)
 	}
 
 	u.Email = strings.ToLower(strings.TrimSpace(in.Email))
 	u.Name = strings.TrimSpace(in.Name)
 
 	if err := s.users.UpdateProfile(ctx, &u); err != nil {
-		if errors.Is(err, entity.ErrUserExists) {
-			return entity.User{}, ErrEmailTaken
+		if errors.Is(err, domain.ErrUserExists) {
+			return domain.User{}, ErrEmailTaken
 		}
-		if errors.Is(err, entity.ErrUserNotFound) {
-			return entity.User{}, entity.ErrUserNotFound
+		if errors.Is(err, domain.ErrUserNotFound) {
+			return domain.User{}, domain.ErrUserNotFound
 		}
-		return entity.User{}, fmt.Errorf("service auth update me: %w", err)
+		return domain.User{}, fmt.Errorf("service auth update me: %w", err)
 	}
 	return u, nil
 }
@@ -131,8 +131,8 @@ func (s *authService) UpdateMe(ctx context.Context, userID int64, in UpdateUserI
 func (s *authService) ChangePassword(ctx context.Context, userID int64, currentPassword, newPassword, currentRefreshToken string) error {
 	u, err := s.users.GetByID(ctx, userID)
 	if err != nil {
-		if errors.Is(err, entity.ErrUserNotFound) {
-			return entity.ErrUserNotFound
+		if errors.Is(err, domain.ErrUserNotFound) {
+			return domain.ErrUserNotFound
 		}
 		return fmt.Errorf("service auth change password lookup: %w", err)
 	}
@@ -159,8 +159,8 @@ func (s *authService) ChangePassword(ctx context.Context, userID int64, currentP
 	}
 
 	if err := s.users.UpdatePasswordHash(ctx, userID, hash); err != nil {
-		if errors.Is(err, entity.ErrUserNotFound) {
-			return entity.ErrUserNotFound
+		if errors.Is(err, domain.ErrUserNotFound) {
+			return domain.ErrUserNotFound
 		}
 		return fmt.Errorf("service auth change password update: %w", err)
 	}
@@ -173,8 +173,8 @@ func (s *authService) ChangePassword(ctx context.Context, userID int64, currentP
 
 func (s *authService) DeleteMe(ctx context.Context, userID int64) error {
 	if err := s.users.SoftDelete(ctx, userID); err != nil {
-		if errors.Is(err, entity.ErrUserNotFound) {
-			return entity.ErrUserNotFound
+		if errors.Is(err, domain.ErrUserNotFound) {
+			return domain.ErrUserNotFound
 		}
 		return fmt.Errorf("service auth delete me: %w", err)
 	}
@@ -187,7 +187,7 @@ func (s *authService) DeleteMe(ctx context.Context, userID int64) error {
 func (s *authService) Login(ctx context.Context, email, pwd string, sc SessionContext) (TokenPair, error) {
 	u, err := s.users.GetByEmail(ctx, strings.ToLower(strings.TrimSpace(email)))
 	if err != nil {
-		if errors.Is(err, entity.ErrUserNotFound) {
+		if errors.Is(err, domain.ErrUserNotFound) {
 			return TokenPair{}, ErrInvalidCredentials
 		}
 		return TokenPair{}, fmt.Errorf("service auth login lookup: %w", err)
@@ -208,7 +208,7 @@ func (s *authService) Refresh(ctx context.Context, refreshToken string, sc Sessi
 
 	userID, err := s.sessions.LookupUserID(ctx, oldHash)
 	if err != nil {
-		if errors.Is(err, entity.ErrSessionNotFound) {
+		if errors.Is(err, domain.ErrSessionNotFound) {
 			return TokenPair{}, ErrInvalidSession
 		}
 		return TokenPair{}, fmt.Errorf("service auth refresh lookup: %w", err)
@@ -231,7 +231,7 @@ func (s *authService) Logout(ctx context.Context, refreshToken string) error {
 
 	userID, err := s.sessions.LookupUserID(ctx, hash)
 	if err != nil {
-		if errors.Is(err, entity.ErrSessionNotFound) {
+		if errors.Is(err, domain.ErrSessionNotFound) {
 			return nil
 		}
 		return fmt.Errorf("service auth logout lookup: %w", err)
@@ -261,7 +261,7 @@ func (s *authService) issueTokenPair(ctx context.Context, userID int64, sc Sessi
 		return TokenPair{}, fmt.Errorf("service auth issue refresh: %w", err)
 	}
 
-	session := entity.Session{
+	session := domain.Session{
 		UserAgent: sc.UserAgent,
 		IPAddress: sc.IPAddress,
 		CreatedAt: time.Now().UTC(),

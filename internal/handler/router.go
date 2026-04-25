@@ -44,6 +44,7 @@ func (r *Router) Setup() http.Handler {
 
 	mux.Handle("POST "+v1+"/projects", requireAuth(http.HandlerFunc(r.project.CreateProject)))
 	mux.Handle("GET "+v1+"/projects", requireAuth(http.HandlerFunc(r.project.ListProjects)))
+	mux.Handle("POST "+v1+"/projects/{id}/tasks", requireAuth(http.HandlerFunc(r.task.CreateProjectTask)))
 	mux.Handle("POST "+v1+"/projects/{id}/invites", requireAuth(http.HandlerFunc(r.project.InviteMember)))
 	mux.Handle("GET "+v1+"/projects/{id}/members", requireAuth(http.HandlerFunc(r.project.ListMembers)))
 	mux.Handle("PUT "+v1+"/projects/{id}/members/{user_id}", requireAuth(http.HandlerFunc(r.project.UpdateMemberRole)))
@@ -56,6 +57,8 @@ func (r *Router) Setup() http.Handler {
 	mux.Handle("GET "+v1+"/tasks", requireAuth(http.HandlerFunc(r.task.ListTasks)))
 	mux.Handle("GET "+v1+"/tasks/{id}", requireAuth(http.HandlerFunc(r.task.GetTask)))
 	mux.Handle("PUT "+v1+"/tasks/{id}", requireAuth(http.HandlerFunc(r.task.UpdateTask)))
+	mux.Handle("PATCH "+v1+"/tasks/{id}/status", requireAuth(http.HandlerFunc(r.task.UpdateTaskStatus)))
+	mux.Handle("PATCH "+v1+"/tasks/{id}/move", requireAuth(http.HandlerFunc(r.task.MoveTask)))
 	mux.Handle("DELETE "+v1+"/tasks/{id}", requireAuth(http.HandlerFunc(r.task.DeleteTask)))
 
 	return recoverMiddleware(mux)

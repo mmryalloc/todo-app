@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mmryalloc/tody/internal/entity"
+	"github.com/mmryalloc/tody/internal/domain"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -21,7 +21,7 @@ type sessionRecord struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-func sessionRecordFromEntity(s entity.Session) sessionRecord {
+func sessionRecordFromEntity(s domain.Session) sessionRecord {
 	return sessionRecord{
 		UserAgent: s.UserAgent,
 		IPAddress: s.IPAddress,
@@ -49,7 +49,7 @@ func userSessionsPattern(userID int64) string {
 	return "session:" + strconv.FormatInt(userID, 10) + ":*"
 }
 
-func (r *sessionRepository) Save(ctx context.Context, userID int64, tokenHash string, s entity.Session, ttl time.Duration) error {
+func (r *sessionRepository) Save(ctx context.Context, userID int64, tokenHash string, s domain.Session, ttl time.Duration) error {
 	payload, err := json.Marshal(sessionRecordFromEntity(s))
 	if err != nil {
 		return fmt.Errorf("repository session marshal: %w", err)
@@ -76,7 +76,7 @@ func (r *sessionRepository) LookupUserID(ctx context.Context, tokenHash string) 
 	val, err := r.client.Get(ctx, lookupKey(tokenHash)).Result()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
-			return 0, entity.ErrSessionNotFound
+			return 0, domain.ErrSessionNotFound
 		}
 		return 0, fmt.Errorf("repository session lookup: %w", err)
 	}

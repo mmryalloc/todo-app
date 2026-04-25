@@ -2,7 +2,6 @@ module github.com/mmryalloc/tody
 
 go 1.25.5
 
-require github.com/joho/godotenv v1.5.1
 
 require (
 	github.com/go-playground/validator/v10 v10.30.2
@@ -11,6 +10,7 @@ require (
 	github.com/redis/go-redis/v9 v9.18.0
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/crypto v0.50.0
+	github.com/joho/godotenv v1.5.1
 )
 
 require (

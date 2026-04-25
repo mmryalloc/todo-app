@@ -5,45 +5,45 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/mmryalloc/tody/internal/entity"
+	"github.com/mmryalloc/tody/internal/domain"
 	"github.com/mmryalloc/tody/internal/pagination"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 type mockProjectRepository struct {
-	CreateFunc           func(ctx context.Context, p *entity.Project) error
-	ListFunc             func(ctx context.Context, userID int64, limit, offset int) ([]entity.Project, int, error)
-	GetByIDFunc          func(ctx context.Context, userID, id int64) (entity.Project, error)
-	GetDetailsFunc       func(ctx context.Context, userID, id int64) (entity.ProjectDetails, error)
-	UpdateFunc           func(ctx context.Context, p *entity.Project) error
+	CreateFunc           func(ctx context.Context, p *domain.Project) error
+	ListFunc             func(ctx context.Context, userID int64, limit, offset int) ([]domain.Project, int, error)
+	GetByIDFunc          func(ctx context.Context, userID, id int64) (domain.Project, error)
+	GetDetailsFunc       func(ctx context.Context, userID, id int64) (domain.ProjectDetails, error)
+	UpdateFunc           func(ctx context.Context, p *domain.Project) error
 	DeleteFunc           func(ctx context.Context, userID, id int64) error
-	GetRoleFunc          func(ctx context.Context, projectID, userID int64) (entity.ProjectRole, error)
-	AddMemberByEmailFunc func(ctx context.Context, projectID int64, email string, role entity.ProjectRole) (entity.ProjectMember, error)
-	ListMembersFunc      func(ctx context.Context, projectID int64) ([]entity.ProjectMember, error)
-	GetMemberFunc        func(ctx context.Context, projectID, userID int64) (entity.ProjectMember, error)
-	UpdateMemberRoleFunc func(ctx context.Context, projectID, userID int64, role entity.ProjectRole) (entity.ProjectMember, error)
+	GetRoleFunc          func(ctx context.Context, projectID, userID int64) (domain.ProjectRole, error)
+	AddMemberByEmailFunc func(ctx context.Context, projectID int64, email string, role domain.ProjectRole) (domain.ProjectMember, error)
+	ListMembersFunc      func(ctx context.Context, projectID int64) ([]domain.ProjectMember, error)
+	GetMemberFunc        func(ctx context.Context, projectID, userID int64) (domain.ProjectMember, error)
+	UpdateMemberRoleFunc func(ctx context.Context, projectID, userID int64, role domain.ProjectRole) (domain.ProjectMember, error)
 	DeleteMemberFunc     func(ctx context.Context, projectID, userID int64) error
 	CountOwnersFunc      func(ctx context.Context, projectID int64) (int, error)
 }
 
-func (m *mockProjectRepository) Create(ctx context.Context, p *entity.Project) error {
+func (m *mockProjectRepository) Create(ctx context.Context, p *domain.Project) error {
 	return m.CreateFunc(ctx, p)
 }
 
-func (m *mockProjectRepository) List(ctx context.Context, userID int64, limit, offset int) ([]entity.Project, int, error) {
+func (m *mockProjectRepository) List(ctx context.Context, userID int64, limit, offset int) ([]domain.Project, int, error) {
 	return m.ListFunc(ctx, userID, limit, offset)
 }
 
-func (m *mockProjectRepository) GetByID(ctx context.Context, userID, id int64) (entity.Project, error) {
+func (m *mockProjectRepository) GetByID(ctx context.Context, userID, id int64) (domain.Project, error) {
 	return m.GetByIDFunc(ctx, userID, id)
 }
 
-func (m *mockProjectRepository) GetDetails(ctx context.Context, userID, id int64) (entity.ProjectDetails, error) {
+func (m *mockProjectRepository) GetDetails(ctx context.Context, userID, id int64) (domain.ProjectDetails, error) {
 	return m.GetDetailsFunc(ctx, userID, id)
 }
 
-func (m *mockProjectRepository) Update(ctx context.Context, p *entity.Project) error {
+func (m *mockProjectRepository) Update(ctx context.Context, p *domain.Project) error {
 	return m.UpdateFunc(ctx, p)
 }
 
@@ -51,23 +51,23 @@ func (m *mockProjectRepository) Delete(ctx context.Context, userID, id int64) er
 	return m.DeleteFunc(ctx, userID, id)
 }
 
-func (m *mockProjectRepository) GetRole(ctx context.Context, projectID, userID int64) (entity.ProjectRole, error) {
+func (m *mockProjectRepository) GetRole(ctx context.Context, projectID, userID int64) (domain.ProjectRole, error) {
 	return m.GetRoleFunc(ctx, projectID, userID)
 }
 
-func (m *mockProjectRepository) AddMemberByEmail(ctx context.Context, projectID int64, email string, role entity.ProjectRole) (entity.ProjectMember, error) {
+func (m *mockProjectRepository) AddMemberByEmail(ctx context.Context, projectID int64, email string, role domain.ProjectRole) (domain.ProjectMember, error) {
 	return m.AddMemberByEmailFunc(ctx, projectID, email, role)
 }
 
-func (m *mockProjectRepository) ListMembers(ctx context.Context, projectID int64) ([]entity.ProjectMember, error) {
+func (m *mockProjectRepository) ListMembers(ctx context.Context, projectID int64) ([]domain.ProjectMember, error) {
 	return m.ListMembersFunc(ctx, projectID)
 }
 
-func (m *mockProjectRepository) GetMember(ctx context.Context, projectID, userID int64) (entity.ProjectMember, error) {
+func (m *mockProjectRepository) GetMember(ctx context.Context, projectID, userID int64) (domain.ProjectMember, error) {
 	return m.GetMemberFunc(ctx, projectID, userID)
 }
 
-func (m *mockProjectRepository) UpdateMemberRole(ctx context.Context, projectID, userID int64, role entity.ProjectRole) (entity.ProjectMember, error) {
+func (m *mockProjectRepository) UpdateMemberRole(ctx context.Context, projectID, userID int64, role domain.ProjectRole) (domain.ProjectMember, error) {
 	return m.UpdateMemberRoleFunc(ctx, projectID, userID, role)
 }
 
@@ -81,7 +81,7 @@ func (m *mockProjectRepository) CountOwners(ctx context.Context, projectID int64
 
 func TestCreateProject(t *testing.T) {
 	repo := &mockProjectRepository{
-		CreateFunc: func(ctx context.Context, p *entity.Project) error {
+		CreateFunc: func(ctx context.Context, p *domain.Project) error {
 			assert.Equal(t, testUserID, p.UserID)
 			assert.Equal(t, "Work", p.Name)
 			assert.Equal(t, "#3B82F6", p.Color)
@@ -98,9 +98,9 @@ func TestCreateProject(t *testing.T) {
 }
 
 func TestListProjects(t *testing.T) {
-	projects := []entity.Project{{ID: 1, UserID: testUserID, Name: "Inbox"}}
+	projects := []domain.Project{{ID: 1, UserID: testUserID, Name: "Inbox"}}
 	repo := &mockProjectRepository{
-		ListFunc: func(ctx context.Context, userID int64, limit, offset int) ([]entity.Project, int, error) {
+		ListFunc: func(ctx context.Context, userID int64, limit, offset int) ([]domain.Project, int, error) {
 			assert.Equal(t, testUserID, userID)
 			assert.Equal(t, 20, limit)
 			assert.Equal(t, 40, offset)
@@ -116,12 +116,12 @@ func TestListProjects(t *testing.T) {
 }
 
 func TestGetProject(t *testing.T) {
-	want := entity.ProjectDetails{
-		Project: entity.Project{ID: 1, UserID: testUserID, Name: "Work"},
-		Stats:   entity.ProjectStats{TotalTasks: 3, CompletedTasks: 1, ActiveTasks: 2},
+	want := domain.ProjectDetails{
+		Project: domain.Project{ID: 1, UserID: testUserID, Name: "Work"},
+		Stats:   domain.ProjectStats{TotalTasks: 3, CompletedTasks: 1, ActiveTasks: 2},
 	}
 	repo := &mockProjectRepository{
-		GetDetailsFunc: func(ctx context.Context, userID, id int64) (entity.ProjectDetails, error) {
+		GetDetailsFunc: func(ctx context.Context, userID, id int64) (domain.ProjectDetails, error) {
 			assert.Equal(t, testUserID, userID)
 			assert.Equal(t, int64(1), id)
 			return want, nil
@@ -136,13 +136,13 @@ func TestGetProject(t *testing.T) {
 
 func TestUpdateProject(t *testing.T) {
 	repo := &mockProjectRepository{
-		GetRoleFunc: func(ctx context.Context, projectID, userID int64) (entity.ProjectRole, error) {
-			return entity.ProjectRoleEditor, nil
+		GetRoleFunc: func(ctx context.Context, projectID, userID int64) (domain.ProjectRole, error) {
+			return domain.ProjectRoleEditor, nil
 		},
-		GetByIDFunc: func(ctx context.Context, userID, id int64) (entity.Project, error) {
-			return entity.Project{ID: id, UserID: userID, Name: "Old", Color: "#64748B"}, nil
+		GetByIDFunc: func(ctx context.Context, userID, id int64) (domain.Project, error) {
+			return domain.Project{ID: id, UserID: userID, Name: "Old", Color: "#64748B"}, nil
 		},
-		UpdateFunc: func(ctx context.Context, p *entity.Project) error {
+		UpdateFunc: func(ctx context.Context, p *domain.Project) error {
 			assert.Equal(t, "New", p.Name)
 			assert.Equal(t, "#22C55E", p.Color)
 			return nil
@@ -160,11 +160,11 @@ func TestDeleteProject(t *testing.T) {
 	t.Run("ordinary project", func(t *testing.T) {
 		deleted := false
 		repo := &mockProjectRepository{
-			GetRoleFunc: func(ctx context.Context, projectID, userID int64) (entity.ProjectRole, error) {
-				return entity.ProjectRoleOwner, nil
+			GetRoleFunc: func(ctx context.Context, projectID, userID int64) (domain.ProjectRole, error) {
+				return domain.ProjectRoleOwner, nil
 			},
-			GetByIDFunc: func(ctx context.Context, userID, id int64) (entity.Project, error) {
-				return entity.Project{ID: id, UserID: userID}, nil
+			GetByIDFunc: func(ctx context.Context, userID, id int64) (domain.Project, error) {
+				return domain.Project{ID: id, UserID: userID}, nil
 			},
 			DeleteFunc: func(ctx context.Context, userID, id int64) error {
 				deleted = true
@@ -181,11 +181,11 @@ func TestDeleteProject(t *testing.T) {
 
 	t.Run("default project", func(t *testing.T) {
 		repo := &mockProjectRepository{
-			GetRoleFunc: func(ctx context.Context, projectID, userID int64) (entity.ProjectRole, error) {
-				return entity.ProjectRoleOwner, nil
+			GetRoleFunc: func(ctx context.Context, projectID, userID int64) (domain.ProjectRole, error) {
+				return domain.ProjectRoleOwner, nil
 			},
-			GetByIDFunc: func(ctx context.Context, userID, id int64) (entity.Project, error) {
-				return entity.Project{ID: id, UserID: userID, IsDefault: true}, nil
+			GetByIDFunc: func(ctx context.Context, userID, id int64) (domain.Project, error) {
+				return domain.Project{ID: id, UserID: userID, IsDefault: true}, nil
 			},
 			DeleteFunc: func(ctx context.Context, userID, id int64) error {
 				t.Fatal("default project must not be deleted")
@@ -200,11 +200,11 @@ func TestDeleteProject(t *testing.T) {
 
 	t.Run("not found", func(t *testing.T) {
 		repo := &mockProjectRepository{
-			GetRoleFunc: func(ctx context.Context, projectID, userID int64) (entity.ProjectRole, error) {
-				return "", entity.ErrProjectNotFound
+			GetRoleFunc: func(ctx context.Context, projectID, userID int64) (domain.ProjectRole, error) {
+				return "", domain.ErrProjectNotFound
 			},
-			GetByIDFunc: func(ctx context.Context, userID, id int64) (entity.Project, error) {
-				return entity.Project{}, entity.ErrProjectNotFound
+			GetByIDFunc: func(ctx context.Context, userID, id int64) (domain.Project, error) {
+				return domain.Project{}, domain.ErrProjectNotFound
 			},
 			DeleteFunc: func(ctx context.Context, userID, id int64) error {
 				return errors.New("must not be called")
@@ -213,6 +213,6 @@ func TestDeleteProject(t *testing.T) {
 		s := NewProjectService(repo)
 
 		err := s.DeleteProject(context.Background(), testUserID, 1)
-		require.ErrorIs(t, err, entity.ErrProjectNotFound)
+		require.ErrorIs(t, err, domain.ErrProjectNotFound)
 	})
 }
